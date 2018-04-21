@@ -7,7 +7,7 @@ oksvg uses the [rasterx](https://github.com/srwiley/rasterx) to fully implement 
 ![Jupiter](doc/jupiter.png)
 
 
-### Extra SVG2.0 features.
+### Extra non-standard features.
 
 In addition to 'arc' as a valid join mode value, oksvg also allows 'arc-clip' which is the arc analog of miter-clip and some extra capping and gap values.
 
