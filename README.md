@@ -1,7 +1,7 @@
 # oksvg
 oksvg is a rasterizer for a partial implementation of the SVG2.0 specification in golang.
 
-Although many SVG elements will not be read by oksvg, it is good enough to faithfully produce thousands, but certainly not all, SVG icons available both for free and commercially. A list of valid and invalid elements is in the doc folder.
+Although some SVG elements will not be handled by oksvg, it is good enough to faithfully produce thousands, but not all, SVG icons available both for free and commercially. A list of valid and invalid elements is in the doc folder.
 
 oksvg uses the [rasterx](https://github.com/srwiley/rasterx) adaptation of the golang freetype raster package which implements full SVG2.0 path functions, including the newer 'arc' join-mode.
 
@@ -9,14 +9,11 @@ oksvg uses the [rasterx](https://github.com/srwiley/rasterx) adaptation of the g
 
 ### Extra non-standard features.
 
-In addition to 'arc' as a valid join mode value, oksvg also allows 'arc-clip' which is the arc analog of miter-clip and some extra capping and gap values.
+In addition to 'arc' as a valid join mode value, oksvg also allows 'arc-clip' which is the arc analog of miter-clip. There are also extra capping and gap functions and different cap functions may be specified for leading and trailing end points.
 
-#### Rasterizations of SVG to PNG from creative commons 3.0 sources.
+#### Examples
 
-Example renderings of unedited open source SVG files by oksvg and rasterx are shown below.
-
-Thanks to [Freepik](http://www.freepik.com) from [Flaticon](https://www.flaticon.com/)
-Licensed by [Creative Commons 3.0](http://creativecommons.org/licenses/by/3.0/) for the example shown here icons, and used as test icons in the testdata folder.
+Rasterizations of a few third party open source SVG icons to PNG images by oksvg are shown below.
 
 ![Jupiter](doc/jupiter.png)
 
@@ -25,3 +22,7 @@ Licensed by [Creative Commons 3.0](http://creativecommons.org/licenses/by/3.0/) 
 ![mountains](doc/mountains.png)
 
 ![bus](doc/school-bus.png)
+
+Thanks to [Freepik](http://www.freepik.com) for the example icons on this page and in the testdata folder.
+
+Icons made by [Freepik](http://www.freepik.com) from [Flaticon](https://www.flaticon.com/) are licensed by [CC 3.0 BY](http://creativecommons.org/licenses/by/3.0/).
