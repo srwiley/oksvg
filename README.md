@@ -12,7 +12,7 @@ In addition to 'arc' as a valid join mode value, oksvg also allows 'arc-clip' wh
 
 
 Thanks to [Freepik](http://www.freepik.com) from [Flaticon](https://www.flaticon.com/)
-Licensed by [Creative Commons BY 3.0](http://creativecommons.org/licenses/by/3.0/) for the example Jupiter, lander, and mountains SVG icons, and also additional icons in the testdata folder.
+Licensed by [Creative Commons 3.0](http://creativecommons.org/licenses/by/3.0/) for the example Jupiter, lander, and mountains SVG icons, and also additional icons in the testdata folder.
 
 ![Jupiter](doc/jupiter.png)
 
