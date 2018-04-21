@@ -19,3 +19,5 @@ Licensed by [Creative Commons 3.0](http://creativecommons.org/licenses/by/3.0/) 
 ![lander](doc/lander.png)
 
 ![mountains](doc/mountains.png)
+
+![bus](doc/school-bus.png)
