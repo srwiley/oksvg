@@ -1,5 +1,5 @@
 # oksvg
-oksvg is a rasterizer for a partial implementation of the SVG2.0 specification in golang.
+oksvg is a renderer for a partial implementation of the SVG2.0 specification in golang.
 
 Although some SVG elements will not be handled by oksvg, it is good enough to faithfully produce thousands, but not all, SVG icons available both for free and commercially. A list of valid and invalid elements is in the doc folder.
 
