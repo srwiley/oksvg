@@ -70,8 +70,8 @@ func (s *SvgIcon) Draw(r *rasterx.Dasher, opacity float64) {
 // Draw the compiled SVG icon into the GraphicContext.
 // All elements should be contained by the Bounds rectangle of the SvgIcon.
 func (svgp *SvgPath) Draw(r *rasterx.Dasher, opacity float64) {
-	r.Clear()
 	if svgp.DoFill {
+		r.Clear()
 		ar, g, b, _ := svgp.FillColor.RGBA()
 
 		rf := &r.Filler
@@ -83,6 +83,7 @@ func (svgp *SvgPath) Draw(r *rasterx.Dasher, opacity float64) {
 		r.SetWinding(true)
 	}
 	if svgp.DoLine {
+		r.Clear()
 		lineGap := svgp.LineGap
 		if lineGap == nil {
 			lineGap = DefaultStyle.LineGap
