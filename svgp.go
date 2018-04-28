@@ -1,8 +1,4 @@
 // Copyright 2017 The oksvg Authors. All rights reserved.
-// Use of this source code is governed by your choice of either the
-// FreeType License or the GNU General Public License version 2 (or
-// any later version), both of which can be found in the LICENSE file.
-//
 // created: 2/12/2017 by S.R.Wiley
 
 // svgd.go implements translation of an SVG2.0 path into a rasterx Path.

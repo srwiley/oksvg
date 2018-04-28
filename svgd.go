@@ -1,7 +1,4 @@
 // Copyright 2017 The oksvg Authors. All rights reserved.
-// Use of this source code is governed by your choice of either the
-// FreeType License or the GNU General Public License version 2 (or
-// any later version), both of which can be found in the LICENSE file.
 //
 // created: 2/12/2017 by S.R.Wiley
 // The oksvg package provides a partial implementation of the SVG 2.0 standard.
@@ -23,6 +20,7 @@ import (
 
 	"encoding/xml"
 	"errors"
+	//"image"
 	"image/color"
 	"log"
 
@@ -63,32 +61,28 @@ var DefaultStyle = PathStyle{1.0, 1.0, 2.0, 0.0, 4.0, nil, true, false, true,
 
 // Draws the compiled SVG icon into the GraphicContext.
 // All elements should be contained by the Bounds rectangle of the SvgIcon.
-func (s *SvgIcon) Draw(r *rasterx.Dasher, rgbPainter *rasterx.RGBAPainter, opacity float64) {
+func (s *SvgIcon) Draw(r *rasterx.Dasher, opacity float64) {
 	for _, svgp := range s.SVGPaths {
-		svgp.Draw(r, rgbPainter, opacity)
+		svgp.Draw(r, opacity)
 	}
 }
 
 // Draw the compiled SVG icon into the GraphicContext.
 // All elements should be contained by the Bounds rectangle of the SvgIcon.
-func (svgp *SvgPath) Draw(r *rasterx.Dasher, rgbPainter *rasterx.RGBAPainter, opacity float64) {
+func (svgp *SvgPath) Draw(r *rasterx.Dasher, opacity float64) {
+	r.Clear()
 	if svgp.DoFill {
-		r.Clear()
 		ar, g, b, _ := svgp.FillColor.RGBA()
-		rgbPainter.SetColor(color.NRGBA{uint8(ar), uint8(g), uint8(b), uint8(svgp.FillOpacity * opacity * 0xFF)})
-		// rf will directly call the filler methods for path commands
-		rf := &r.Filler
 
-		if svgp.UseNonZeroWinding == false {
-			rf.UseNonZeroWinding = false
-		}
+		rf := &r.Filler
+		rf.SetColor(color.NRGBA{uint8(ar), uint8(g), uint8(b), uint8(svgp.FillOpacity * opacity * 0xFF)})
+		rf.SetWinding(svgp.UseNonZeroWinding)
 		svgp.Path.AddTo(rf)
-		rf.Rasterize(rgbPainter)
+		rf.Draw()
 		// default is true
-		rf.UseNonZeroWinding = true
+		r.SetWinding(true)
 	}
 	if svgp.DoLine {
-		r.Clear()
 		lineGap := svgp.LineGap
 		if lineGap == nil {
 			lineGap = DefaultStyle.LineGap
@@ -106,9 +100,9 @@ func (svgp *SvgPath) Draw(r *rasterx.Dasher, rgbPainter *rasterx.RGBAPainter, op
 			lineGap, svgp.LineJoin, svgp.Dash, svgp.DashOffset)
 		svgp.Path.AddTo(r)
 		ar, g, b, _ := svgp.LineColor.RGBA()
-		rgbPainter.SetColor(color.NRGBA{uint8(ar), uint8(g), uint8(b),
+		r.SetColor(color.NRGBA{uint8(ar), uint8(g), uint8(b),
 			uint8(svgp.LineOpacity * opacity * 0xFF)})
-		r.Rasterize(rgbPainter)
+		r.Draw()
 	}
 }
 
