@@ -331,14 +331,14 @@ func (c *SvgCursor) ElipseAt(cx, cy, rx, ry float64) {
 
 func (c *SvgCursor) AddArcFromA(points []float64) {
 	cx, cy := FindEllipseCenter(&points[0], &points[1], points[2]*math.Pi/180, c.placeX,
-		c.placeY, points[5], points[6], points[4] == 0)
+		c.placeY, points[5], points[6], points[4] == 0, points[3] == 0)
 	c.AddArcFromAC(points, cx, cy)
 }
 
 func (c *SvgCursor) AddArcFromAC(points []float64, cx, cy float64) {
 	rotX := points[2] * math.Pi / 180 // Convert degress to radians
 	largeArc := points[3] != 0
-	//sweep := points[4] != 0
+	sweep := points[4] != 0
 	startAngle := math.Atan2(c.placeY-cy, c.placeX-cx) - rotX
 	endAngle := math.Atan2(points[6]-cy, points[5]-cx) - rotX
 	deltaTheta := endAngle - startAngle
@@ -354,6 +354,13 @@ func (c *SvgCursor) AddArcFromAC(points []float64, cx, cy float64) {
 		} else {
 			deltaEta -= math.Pi * 2
 		}
+	}
+	// This check migth be needed if the center point of the elipse is
+	// at the midpoint of the start and end lines.
+	if deltaEta < 0 && sweep {
+		deltaEta += math.Pi * 2
+	} else if deltaEta >= 0 && !sweep {
+		deltaEta -= math.Pi * 2
 	}
 
 	// Round up to determine number of cubic splines to approximate bezier curve
@@ -414,7 +421,7 @@ func ellipsePointAt(a, b, sinTheta, cosTheta, eta, cx, cy float64) (px, py float
 // to reduce the problem to finding the center of a circle that includes the origin
 // and an arbitrary point. The center of the circle is then transformed
 // back to the original coordinates and returned.
-func FindEllipseCenter(ra, rb *float64, rotX, startX, startY, endX, endY float64, isNegSweep bool) (cx, cy float64) {
+func FindEllipseCenter(ra, rb *float64, rotX, startX, startY, endX, endY float64, sweep, smallArc bool) (cx, cy float64) {
 	cos, sin := math.Cos(rotX), math.Sin(rotX)
 
 	// Move origin to start point
@@ -444,7 +451,7 @@ func FindEllipseCenter(ra, rb *float64, rotX, startX, startY, endX, endY float64
 	}
 
 	//Sweep is determined by cross prod of mid vector and normal ray to center
-	if isNegSweep {
+	if (sweep && smallArc) || (!sweep && !smallArc) {
 		cx = midX + midY*hr
 		cy = midY - midX*hr
 	} else {
