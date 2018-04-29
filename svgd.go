@@ -136,6 +136,10 @@ func ParseSVGColorNum(colorStr string) (r, g, b uint8, err error) {
 func ParseSVGColor(colorStr string) (color.Color, error) {
 	//_, _, _, a := curColor.RGBA()
 	v := strings.ToLower(colorStr)
+	if strings.HasPrefix(v, "url") { // we are not handling urls
+		// and gradients and stuff at this point
+		return color.NRGBA{0, 0, 0, 255}, nil
+	}
 	switch v {
 	case "none":
 		// nil signals that the function (fill or stroke) is off;
@@ -163,6 +167,7 @@ func ParseSVGColor(colorStr string) (color.Color, error) {
 				return color.NRGBA{0, 0, 0, 0}, err
 			}
 		}
+
 		return color.NRGBA{cvals[0], cvals[1], cvals[2], 0xFF}, nil
 	}
 	if colorStr[0] == '#' {
@@ -177,13 +182,16 @@ func ParseSVGColor(colorStr string) (color.Color, error) {
 
 func parseColorValue(v string) (uint8, error) {
 	if v[len(v)-1] == '%' {
-		n, err := strconv.Atoi(v[:len(v)-1])
+		n, err := strconv.Atoi(strings.TrimSpace(v[:len(v)-1]))
 		if err != nil {
 			return 0, err
 		}
 		return uint8(n * 0xFF / 100), nil
 	}
-	n, err := strconv.Atoi(v)
+	n, err := strconv.Atoi(strings.TrimSpace(v))
+	if n > 255 {
+		n = 255
+	}
 	return uint8(n), err
 }
 
@@ -207,6 +215,7 @@ func PushStyle(se xml.StartElement, stack []PathStyle) ([]PathStyle, error) {
 		kv := strings.Split(pair, ":")
 		if len(kv) >= 2 {
 			k := strings.ToLower(kv[0])
+			k = strings.TrimSpace(k)
 			v := strings.Trim(kv[1], " ")
 			switch k {
 			case "fill":
@@ -214,7 +223,6 @@ func PushStyle(se xml.StartElement, stack []PathStyle) ([]PathStyle, error) {
 				if errc != nil {
 					return stack, errc
 				}
-				//fmt.Println("do fill ", col)
 				if curStyle.DoFill = col != nil; curStyle.DoFill {
 					curStyle.FillColor = col.(color.NRGBA)
 				}
@@ -302,7 +310,7 @@ func PushStyle(se xml.StartElement, stack []PathStyle) ([]PathStyle, error) {
 					dashes := strings.Split(v, ",")
 					dList := make([]float64, len(dashes))
 					for i, dstr := range dashes {
-						d, err := strconv.ParseFloat(strings.Trim(dstr, " "), 64)
+						d, err := strconv.ParseFloat(strings.TrimSpace(dstr), 64)
 						if err != nil {
 							return stack, err
 						}
@@ -367,8 +375,14 @@ func ReadIcon(iconFile string, errMode ...ErrorMode) (*SvgIcon, error) {
 			if err != nil {
 				return &icon, err
 			}
+			//fmt.Println("com", se.Name.Local)
 			switch se.Name.Local {
 			case "svg":
+				icon.ViewBox.X = 0
+				icon.ViewBox.Y = 0
+				icon.ViewBox.W = 0
+				icon.ViewBox.H = 0
+				var width, height float64
 				for _, attr := range se.Attr {
 					switch attr.Name.Local {
 					case "viewBox":
@@ -380,7 +394,19 @@ func ReadIcon(iconFile string, errMode ...ErrorMode) (*SvgIcon, error) {
 						icon.ViewBox.Y = cursor.points[1]
 						icon.ViewBox.W = cursor.points[2]
 						icon.ViewBox.H = cursor.points[3]
+					case "width":
+						wn := strings.TrimSuffix(attr.Value, "cm")
+						width, err = strconv.ParseFloat(wn, 64)
+					case "height":
+						hn := strings.TrimSuffix(attr.Value, "cm")
+						height, err = strconv.ParseFloat(hn, 64)
 					}
+				}
+				if icon.ViewBox.W == 0 {
+					icon.ViewBox.W = width
+				}
+				if icon.ViewBox.H == 0 {
+					icon.ViewBox.H = height
 				}
 			case "g": // G does nothing but push the style
 			case "rect":

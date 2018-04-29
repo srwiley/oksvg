@@ -157,7 +157,6 @@ func (c *SvgCursor) addSeg(segString string) error {
 		c.inPath = true
 		c.Path.Start(fixed.Point26_6{c.pathStartX, c.pathStartY})
 		for i := 2; i < l-1; i += 2 {
-
 			c.Path.Line(fixed.Point26_6{
 				fixed.Int26_6(c.points[i] * 64),
 				fixed.Int26_6(c.points[i+1] * 64)})
@@ -291,7 +290,6 @@ func (c *SvgCursor) addSeg(segString string) error {
 					fixed.Int26_6(c.points[i] * 64), fixed.Int26_6(c.points[i+1] * 64)},
 				fixed.Point26_6{
 					fixed.Int26_6(c.points[i+2] * 64), fixed.Int26_6(c.points[i+3] * 64)})
-
 			c.lastKey = k
 			c.cntlPtX, c.cntlPtY = c.points[i], c.points[i+1]
 			c.placeX = c.points[i+2]
@@ -340,7 +338,7 @@ func (c *SvgCursor) AddArcFromA(points []float64) {
 func (c *SvgCursor) AddArcFromAC(points []float64, cx, cy float64) {
 	rotX := points[2] * math.Pi / 180 // Convert degress to radians
 	largeArc := points[3] != 0
-
+	//sweep := points[4] != 0
 	startAngle := math.Atan2(c.placeY-cy, c.placeX-cx) - rotX
 	endAngle := math.Atan2(points[6]-cy, points[5]-cx) - rotX
 	deltaTheta := endAngle - startAngle
