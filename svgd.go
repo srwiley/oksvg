@@ -23,6 +23,7 @@ import (
 	//"image"
 	"image/color"
 	"log"
+	"math"
 
 	"github.com/srwiley/rasterx"
 	"golang.org/x/image/colornames"
@@ -40,6 +41,7 @@ type (
 		LeadLineCap                       rasterx.CapFunc // This is used if different than LineCap
 		LineCap                           rasterx.CapFunc
 		LineJoin                          rasterx.JoinMode
+		mAdder                            MatrixAdder // current transform
 	}
 
 	SvgPath struct {
@@ -57,7 +59,7 @@ type (
 // no opacity, no stroke, ButtCap line end and Bevel line connect.
 var DefaultStyle = PathStyle{1.0, 1.0, 2.0, 0.0, 4.0, nil, true, false, true,
 	color.NRGBA{0x00, 0x00, 0x00, 0xff}, color.NRGBA{0x00, 0x00, 0x00, 0xff},
-	nil, nil, rasterx.ButtCap, rasterx.Bevel}
+	nil, nil, rasterx.ButtCap, rasterx.Bevel, MatrixAdder{M: Identity}}
 
 // Draws the compiled SVG icon into the GraphicContext.
 // All elements should be contained by the Bounds rectangle of the SvgIcon.
@@ -77,7 +79,8 @@ func (svgp *SvgPath) Draw(r *rasterx.Dasher, opacity float64) {
 		rf := &r.Filler
 		rf.SetColor(color.NRGBA{uint8(ar), uint8(g), uint8(b), uint8(svgp.FillOpacity * opacity * 0xFF)})
 		rf.SetWinding(svgp.UseNonZeroWinding)
-		svgp.Path.AddTo(rf)
+		svgp.mAdder.Adder = rf // This allows for transformations to be applied
+		svgp.Path.AddTo(&svgp.mAdder)
 		rf.Draw()
 		// default is true
 		r.SetWinding(true)
@@ -99,7 +102,9 @@ func (svgp *SvgPath) Draw(r *rasterx.Dasher, opacity float64) {
 		r.SetStroke(fixed.Int26_6(svgp.LineWidth*64),
 			fixed.Int26_6(svgp.MiterLimit*64), leadLineCap, lineCap,
 			lineGap, svgp.LineJoin, svgp.Dash, svgp.DashOffset)
-		svgp.Path.AddTo(r)
+
+		svgp.mAdder.Adder = r
+		svgp.Path.AddTo(&svgp.mAdder)
 		ar, g, b, _ := svgp.LineColor.RGBA()
 		r.SetColor(color.NRGBA{uint8(ar), uint8(g), uint8(b),
 			uint8(svgp.LineOpacity * opacity * 0xFF)})
@@ -195,10 +200,81 @@ func parseColorValue(v string) (uint8, error) {
 	return uint8(n), err
 }
 
+func (c *SvgCursor) parseTransform(v string) (Matrix2D, error) {
+	ts := strings.Split(v, " ")
+	m1 := c.StyleStack[len(c.StyleStack)-1].mAdder.M
+	for _, t := range ts {
+		d := strings.Split(t, "(")
+		if len(d) != 2 || len(d[1]) < 2 || d[1][len(d[1])-1] != ')' {
+			return m1, paramMismatchError // badly formed transformation
+		}
+		err := c.GetPoints(strings.TrimSuffix(d[1], ")"))
+		if err != nil {
+			return m1, err
+		}
+		ln := len(c.points)
+		switch strings.ToLower(d[0]) {
+		case "rotate":
+			if ln == 1 {
+				m1 = m1.Rotate(c.points[0] * math.Pi / 180)
+			} else if ln == 3 {
+				m1 = m1.Translate(c.points[1], c.points[2]).
+					Rotate(c.points[0]*math.Pi/180).
+					Translate(-c.points[1], -c.points[2])
+			} else {
+				return m1, paramMismatchError
+			}
+		case "translate":
+			if ln == 1 {
+				m1 = m1.Translate(c.points[0], 0)
+			} else if ln == 2 {
+				m1 = m1.Translate(c.points[0], c.points[1])
+			} else {
+				return m1, paramMismatchError
+			}
+		case "skewx":
+			if ln == 1 {
+				m1 = m1.SkewX(c.points[0] * math.Pi / 180)
+			} else {
+				return m1, paramMismatchError
+			}
+		case "skewy":
+			if ln == 1 {
+				m1 = m1.SkewY(c.points[0] * math.Pi / 180)
+			} else {
+				return m1, paramMismatchError
+			}
+		case "scale":
+			if ln == 1 {
+				m1 = m1.Scale(c.points[0], 0)
+			} else if ln == 2 {
+				m1 = m1.Scale(c.points[0], c.points[1])
+			} else {
+				return m1, paramMismatchError
+			}
+		case "matrix":
+			if ln == 6 {
+				m1 = m1.Mult(Matrix2D{
+					c.points[0],
+					c.points[1],
+					c.points[2],
+					c.points[3],
+					c.points[4],
+					c.points[5]})
+			} else {
+				return m1, paramMismatchError
+			}
+		default:
+			return m1, paramMismatchError
+		}
+	}
+	return m1, nil
+}
+
 // PushStyle parses the style element, and push it on the style stack. Only color and opacity are supported
 // for fill. Note that this parses both the contents of a style attribute plus
 // direct fill and opacity attributes.
-func PushStyle(se xml.StartElement, stack []PathStyle) ([]PathStyle, error) {
+func (c *SvgCursor) PushStyle(se xml.StartElement) error {
 	var pairs []string
 	for _, attr := range se.Attr {
 		switch strings.ToLower(attr.Name.Local) {
@@ -209,8 +285,7 @@ func PushStyle(se xml.StartElement, stack []PathStyle) ([]PathStyle, error) {
 		}
 	}
 	// Make a copy of the top style
-	curStyle := stack[len(stack)-1]
-	//var errc error
+	curStyle := c.StyleStack[len(c.StyleStack)-1]
 	for _, pair := range pairs {
 		kv := strings.Split(pair, ":")
 		if len(kv) >= 2 {
@@ -221,7 +296,7 @@ func PushStyle(se xml.StartElement, stack []PathStyle) ([]PathStyle, error) {
 			case "fill":
 				col, errc := ParseSVGColor(v)
 				if errc != nil {
-					return stack, errc
+					return errc
 				}
 				if curStyle.DoFill = col != nil; curStyle.DoFill {
 					curStyle.FillColor = col.(color.NRGBA)
@@ -229,7 +304,7 @@ func PushStyle(se xml.StartElement, stack []PathStyle) ([]PathStyle, error) {
 			case "stroke":
 				col, errc := ParseSVGColor(v)
 				if errc != nil {
-					return stack, errc
+					return errc
 				}
 				if curStyle.DoLine = col != nil; curStyle.DoLine {
 					curStyle.LineColor = col.(color.NRGBA)
@@ -289,20 +364,20 @@ func PushStyle(se xml.StartElement, stack []PathStyle) ([]PathStyle, error) {
 			case "stroke-miterlimit":
 				mLimit, err := strconv.ParseFloat(v, 64)
 				if err != nil {
-					return stack, err
+					return err
 				}
 				curStyle.MiterLimit = mLimit
 			case "stroke-width":
 				v = strings.TrimSuffix(v, "px")
 				width, err := strconv.ParseFloat(v, 64)
 				if err != nil {
-					return stack, err
+					return err
 				}
 				curStyle.LineWidth = width
 			case "stroke-dashoffset":
 				dashOffset, err := strconv.ParseFloat(v, 64)
 				if err != nil {
-					return stack, err
+					return err
 				}
 				curStyle.DashOffset = dashOffset
 			case "stroke-dasharray":
@@ -312,7 +387,7 @@ func PushStyle(se xml.StartElement, stack []PathStyle) ([]PathStyle, error) {
 					for i, dstr := range dashes {
 						d, err := strconv.ParseFloat(strings.TrimSpace(dstr), 64)
 						if err != nil {
-							return stack, err
+							return err
 						}
 						dList[i] = d
 					}
@@ -322,7 +397,7 @@ func PushStyle(se xml.StartElement, stack []PathStyle) ([]PathStyle, error) {
 			case "opacity", "stroke-opacity", "fill-opacity":
 				op, err := strconv.ParseFloat(v, 64)
 				if err != nil {
-					return stack, err
+					return err
 				}
 				if k != "stroke-opacity" {
 					curStyle.FillOpacity *= op
@@ -330,11 +405,17 @@ func PushStyle(se xml.StartElement, stack []PathStyle) ([]PathStyle, error) {
 				if k != "fill-opacity" {
 					curStyle.LineOpacity *= op
 				}
+			case "transform":
+				m, err := c.parseTransform(v)
+				if err != nil {
+					return err
+				}
+				curStyle.mAdder.M = m
 			}
 		}
 	}
-	stack = append(stack, curStyle) // Push style onto stack
-	return stack, nil
+	c.StyleStack = append(c.StyleStack, curStyle) // Push style onto stack
+	return nil
 }
 
 // ReadIcon reads the Icon from the named file
@@ -371,7 +452,7 @@ func ReadIcon(iconFile string, errMode ...ErrorMode) (*SvgIcon, error) {
 		case xml.StartElement:
 			// Reads all recognized style attributes from the start element
 			// and places it on top of the styleStack
-			cursor.StyleStack, err = PushStyle(se, cursor.StyleStack)
+			err = cursor.PushStyle(se)
 			if err != nil {
 				return &icon, err
 			}
@@ -410,7 +491,7 @@ func ReadIcon(iconFile string, errMode ...ErrorMode) (*SvgIcon, error) {
 				}
 			case "g": // G does nothing but push the style
 			case "rect":
-				var x, y, w, h float64 //= math.NaN(),math.NaN(),math.NaN(),math.NaN()
+				var x, y, w, h float64
 				for _, attr := range se.Attr {
 					switch attr.Name.Local {
 					case "x":
@@ -441,6 +522,7 @@ func ReadIcon(iconFile string, errMode ...ErrorMode) (*SvgIcon, error) {
 					fixed.Int26_6(x * 64),
 					fixed.Int26_6((y + h) * 64)})
 				cursor.Path.Line(startPt)
+				cursor.Path.Stop(true)
 			case "circle", "ellipse":
 				var cx, cy, rx, ry float64
 				for _, attr := range se.Attr {

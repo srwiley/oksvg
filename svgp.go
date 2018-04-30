@@ -14,18 +14,8 @@ import (
 
 	"github.com/srwiley/rasterx"
 
-	//"github.com/golang/freetype/raster"
 	"golang.org/x/image/math/fixed"
 )
-
-var (
-	paramMismatchError  = errors.New("Param mismatch")
-	commandUnknownError = errors.New("Unknown command")
-)
-
-// MaxDx is the Maximum radians a cubic splice is allowed to span
-// in ellipse parametric when approximating an off-axis ellipse
-var MaxDx float64 = math.Pi / 8
 
 type (
 	ErrorMode uint8
@@ -41,6 +31,15 @@ type (
 		inPath                 bool
 	}
 )
+
+var (
+	paramMismatchError  = errors.New("Param mismatch")
+	commandUnknownError = errors.New("Unknown command")
+)
+
+// MaxDx is the Maximum radians a cubic splice is allowed to span
+// in ellipse parametric when approximating an off-axis ellipse.
+const MaxDx float64 = math.Pi / 8
 
 const (
 	IgnoreErrorMode ErrorMode = iota
@@ -255,7 +254,6 @@ func (c *SvgCursor) addSeg(segString string) error {
 			return paramMismatchError
 		}
 		for i := 0; i < l-5; i += 6 {
-
 			c.Path.CubeBezier(
 				fixed.Point26_6{
 					fixed.Int26_6(c.points[i] * 64),
@@ -327,6 +325,7 @@ func (c *SvgCursor) ElipseAt(cx, cy, rx, ry float64) {
 		fixed.Int26_6(c.placeX * 64),
 		fixed.Int26_6(c.placeY * 64)})
 	c.AddArcFromAC(c.points, cx, cy)
+	c.Path.Stop(true)
 }
 
 func (c *SvgCursor) AddArcFromA(points []float64) {
@@ -344,7 +343,7 @@ func (c *SvgCursor) AddArcFromAC(points []float64, cx, cy float64) {
 	deltaTheta := endAngle - startAngle
 	arcBig := math.Abs(deltaTheta) > math.Pi
 
-	//Approximate ellipse using cubic bezeir splines
+	// Approximate ellipse using cubic bezeir splines
 	etaStart := math.Atan2(math.Sin(startAngle)/points[1], math.Cos(startAngle)/points[0])
 	etaEnd := math.Atan2(math.Sin(endAngle)/points[1], math.Cos(endAngle)/points[0])
 	deltaEta := etaEnd - etaStart
@@ -449,8 +448,7 @@ func FindEllipseCenter(ra, rb *float64, rotX, startX, startY, endX, endY float64
 	} else {
 		hr = math.Sqrt(*rb**rb-midlenSq) / math.Sqrt(midlenSq)
 	}
-
-	//Sweep is determined by cross prod of mid vector and normal ray to center
+	// Notice that if hr is zero, both answers are the same.
 	if (sweep && smallArc) || (!sweep && !smallArc) {
 		cx = midX + midY*hr
 		cy = midY - midX*hr
