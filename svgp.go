@@ -322,7 +322,7 @@ func (c *SvgCursor) addSeg(segString string) error {
 func (c *SvgCursor) ElipseAt(cx, cy, rx, ry float64) {
 	c.placeX, c.placeY = cx+rx, cy
 	c.points = c.points[0:0]
-	c.points = append(c.points, rx, ry, 0.0, 1.0, 1.0, c.placeX, c.placeY)
+	c.points = append(c.points, rx, ry, 0.0, 1.0, 0.0, c.placeX, c.placeY)
 	c.Path.Start(fixed.Point26_6{
 		fixed.Int26_6(c.placeX * 64),
 		fixed.Int26_6(c.placeY * 64)})
