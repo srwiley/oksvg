@@ -25,3 +25,25 @@ Licensed by [Creative Commons 3.0](http://creativecommons.org/licenses/by/3.0/) 
 ![mountains](doc/mountains.png)
 
 ![bus](doc/school-bus.png)
+
+### Non-standard library dependencies
+oksvg requires the following imports which are not included in the go standard library:
+
+* golang.org/x/net/html/charset
+* golang.org/x/image/colornames
+* golang.org/x/image/math/fixed
+
+These can be included in your gopath by the following 'get' commands:
+
+* "go get golang.org/x/image/math/fixed"
+* "go get golang.org/x/image/colornames"
+* "go get golang.org/x/net/html/charset"
+
+oksvg also requires the user to get or clone into the workspace the rasterx package located here:
+
+* github.com/srwiley/rasterx
+
+
+
+
+
