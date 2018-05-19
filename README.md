@@ -16,7 +16,7 @@ In addition to 'arc' as a valid join mode value, oksvg also allows 'arc-clip' wh
 Example renderings of unedited open source SVG files by oksvg and rasterx are shown below.
 
 Thanks to [Freepik](http://www.freepik.com) from [Flaticon](https://www.flaticon.com/)
-Licensed by [Creative Commons 3.0](http://creativecommons.org/licenses/by/3.0/) for the example shown here icons, and used as test icons in the testdata folder.
+Licensed by [Creative Commons 3.0](http://creativecommons.org/licenses/by/3.0/) for the example icons shown below, and also used as test icons in the testdata folder.
 
 ![Jupiter](doc/jupiter.png)
 
