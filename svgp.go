@@ -18,8 +18,8 @@ import (
 )
 
 type (
-	ErrorMode uint8
-	SvgCursor struct {
+	ErrorMode  uint8
+	PathCursor struct {
 		rasterx.Path
 		placeX, placeY         float64
 		cntlPtX, cntlPtY       float64
@@ -27,7 +27,6 @@ type (
 		points                 []float64
 		lastKey                uint8
 		ErrorMode              ErrorMode
-		StyleStack             []PathStyle
 		inPath                 bool
 	}
 )
@@ -35,6 +34,8 @@ type (
 var (
 	paramMismatchError  = errors.New("Param mismatch")
 	commandUnknownError = errors.New("Unknown command")
+	zeroLengthIdError   = errors.New("zero length id")
+	missingIdError      = errors.New("cannot find id")
 )
 
 // MaxDx is the Maximum radians a cubic splice is allowed to span
@@ -51,14 +52,14 @@ func reflect(px, py, rx, ry float64) (x, y float64) {
 	return px*2 - rx, py*2 - ry
 }
 
-func (c *SvgCursor) valsToAbs(last float64) {
+func (c *PathCursor) valsToAbs(last float64) {
 	for i := 0; i < len(c.points); i++ {
 		last += c.points[i]
 		c.points[i] = last
 	}
 }
 
-func (c *SvgCursor) pointsToAbs(sz int) {
+func (c *PathCursor) pointsToAbs(sz int) {
 	lastX := c.placeX
 	lastY := c.placeY
 	for j := 0; j < len(c.points); j += sz {
@@ -71,7 +72,7 @@ func (c *SvgCursor) pointsToAbs(sz int) {
 	}
 }
 
-func (c *SvgCursor) hasSetsOrMore(sz int, rel bool) bool {
+func (c *PathCursor) hasSetsOrMore(sz int, rel bool) bool {
 	if !(len(c.points) >= sz && len(c.points)%sz == 0) {
 		return false
 	}
@@ -82,7 +83,7 @@ func (c *SvgCursor) hasSetsOrMore(sz int, rel bool) bool {
 }
 
 // ReadFloat reads a floating point value and adds it to the cursor's points slice.
-func (c *SvgCursor) ReadFloat(numStr string) error {
+func (c *PathCursor) ReadFloat(numStr string) error {
 	f, err := strconv.ParseFloat(numStr, 64)
 	if err != nil {
 		return err
@@ -93,7 +94,7 @@ func (c *SvgCursor) ReadFloat(numStr string) error {
 
 // GetPoints reads a set of floating point values from the SVG format number string,
 // and add them to the cursor's points slice.
-func (c *SvgCursor) GetPoints(dataPoints string) error {
+func (c *PathCursor) GetPoints(dataPoints string) error {
 	lastIndex := -1
 	c.points = c.points[0:0]
 	lr := ' '
@@ -124,7 +125,7 @@ func (c *SvgCursor) GetPoints(dataPoints string) error {
 
 // addSeg decodes an SVG seqment string into equivalent raster path commands saved
 // in the cursor's Path
-func (c *SvgCursor) addSeg(segString string) error {
+func (c *PathCursor) addSeg(segString string) error {
 	// Parse the string describing the numeric points in SVG format
 	if err := c.GetPoints(segString[1:]); err != nil {
 		return err
@@ -317,7 +318,7 @@ func (c *SvgCursor) addSeg(segString string) error {
 	return nil
 }
 
-func (c *SvgCursor) ElipseAt(cx, cy, rx, ry float64) {
+func (c *PathCursor) ElipseAt(cx, cy, rx, ry float64) {
 	c.placeX, c.placeY = cx+rx, cy
 	c.points = c.points[0:0]
 	c.points = append(c.points, rx, ry, 0.0, 1.0, 0.0, c.placeX, c.placeY)
@@ -328,13 +329,13 @@ func (c *SvgCursor) ElipseAt(cx, cy, rx, ry float64) {
 	c.Path.Stop(true)
 }
 
-func (c *SvgCursor) AddArcFromA(points []float64) {
+func (c *PathCursor) AddArcFromA(points []float64) {
 	cx, cy := FindEllipseCenter(&points[0], &points[1], points[2]*math.Pi/180, c.placeX,
 		c.placeY, points[5], points[6], points[4] == 0, points[3] == 0)
 	c.AddArcFromAC(points, cx, cy)
 }
 
-func (c *SvgCursor) AddArcFromAC(points []float64, cx, cy float64) {
+func (c *PathCursor) AddArcFromAC(points []float64, cx, cy float64) {
 	rotX := points[2] * math.Pi / 180 // Convert degress to radians
 	largeArc := points[3] != 0
 	sweep := points[4] != 0
@@ -463,7 +464,7 @@ func FindEllipseCenter(ra, rb *float64, rotX, startX, startY, endX, endY float64
 	return cx*cos - cy*sin + startX, cx*sin + cy*cos + startY
 }
 
-func (c *SvgCursor) init() {
+func (c *PathCursor) init() {
 	c.placeX = 0.0
 	c.placeY = 0.0
 	c.points = c.points[0:0]
@@ -477,7 +478,7 @@ func (c *SvgCursor) init() {
 // the x-axis as defined by the SVG 'a' and 'A' elements are approximated
 // with cubic bezier splines since draw2d has no off-axis ellipse type.
 // The resulting path element is stored in the SvgCursor.
-func (c *SvgCursor) CompilePath(svgPath string) error {
+func (c *PathCursor) CompilePath(svgPath string) error {
 	c.init()
 	lastIndex := -1
 	for i, v := range svgPath {
