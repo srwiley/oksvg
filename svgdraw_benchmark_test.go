@@ -31,7 +31,7 @@ var (
 	w, h       = int(beachIcons[0].ViewBox.W), int(beachIcons[0].ViewBox.H)
 	img        = image.NewRGBA(image.Rect(0, 0, w, h))
 	source     = image.NewUniform(color.NRGBA{0, 0, 0, 255})
-	scannerGV  = NewScannerGV(w, h, img, img.Bounds(), source, image.Point{0, 0})
+	scannerGV  = NewScannerGV(w, h, img, img.Bounds())
 	raster     = NewDasher(w, h, scannerGV)
 
 //	painter   = NewRGBAPainter(img)
@@ -69,7 +69,7 @@ var (
 	img2        = image.NewRGBA(image.Rect(0, 0, w2, h2))
 
 	source2    = image.NewUniform(color.NRGBA{0, 0, 0, 255})
-	scannerGV2 = NewScannerGV(w2, h2, img2, image.Rect(0, 0, w2, h2), source, image.Point{0, 0})
+	scannerGV2 = NewScannerGV(w2, h2, img2, image.Rect(0, 0, w2, h2))
 	raster2    = NewDasher(w2, h2, scannerGV2)
 
 //	painter2   = NewRGBAPainter(img2)
