@@ -6,7 +6,7 @@ import (
 	"bufio"
 	"fmt"
 	"image"
-	"image/color"
+	"math"
 	"os"
 
 	"image/png"
@@ -67,10 +67,10 @@ func DrawIcon(t *testing.T, iconPath string) image.Image {
 	//	painter := scanFT.NewRGBAPainter(img)
 	//	scannerFT := scanFT.NewScannerFT(w, h, painter)
 	//	raster := NewDasher(w, h, scannerFT)
-
-	source := image.NewUniform(color.NRGBA{0, 0, 0, 255})
-	scannerGV := NewScannerGV(w, h, img, img.Bounds(), source, image.Point{0, 0})
-	raster = NewDasher(w, h, scannerGV)
+	//tb := img.Bounds()
+	//tb.Max.X /= 2
+	scannerGV := NewScannerGV(w, h, img, img.Bounds())
+	raster := NewDasher(w, h, scannerGV)
 
 	icon.Draw(raster, 1.0)
 	return img
@@ -108,41 +108,33 @@ func SaveToPngFile(filePath string, m image.Image) error {
 	return nil
 }
 
-func TestSvgPathsStroke(t *testing.T) {
-	for _, v := range []string{"fill", "stroke"} {
-		for i, p := range []string{testArco, testArco2, testArcoS,
-			testSVG0, testSVG1, testSVG2, testSVG3, testSVG4, testSVG5,
-			testSVG6, testSVG7, testSVG8, testSVG9, testSVG10,
-			testSVG11, testSVG12, testSVG13,
-		} {
-			w := 1600
-			img := image.NewRGBA(image.Rect(0, 0, w, w))
+func _TestSvgPathsStroke(t *testing.T) {
+	for i, p := range []string{testArco, testArco2, testArcoS,
+		testSVG0, testSVG1, testSVG2, testSVG3, testSVG4, testSVG5,
+		testSVG6, testSVG7, testSVG8, testSVG9, testSVG10,
+		testSVG11, testSVG12, testSVG13,
+	} {
+		w := 1600
+		img := image.NewRGBA(image.Rect(0, 0, w, w))
 
-			source := image.NewUniform(color.NRGBA{0, 0, 0, 255})
-			scannerGV := NewScannerGV(w, w, img, img.Bounds(), source, image.Point{0, 0})
-			raster = NewDasher(w, w, scannerGV)
+		scannerGV := NewScannerGV(w, w, img, img.Bounds())
+		raster := NewDasher(w, w, scannerGV)
 
-			c := &SvgCursor{}
-			d := DefaultStyle
-			if v == "stroke" {
-				d.DoFill = false
-				d.DoLine = true
-			}
-			icon := SvgIcon{}
+		c := &PathCursor{}
+		d := DefaultStyle
+		icon := SvgIcon{}
 
-			err := c.CompilePath(p)
-			if err != nil {
-				t.Error(err)
-			}
-			icon.SVGPaths = append(icon.SVGPaths, SvgPath{d, c.Path})
-			icon.Draw(raster, 1)
-
-			err = SaveToPngFile(fmt.Sprintf("testdata/%s%d.png", v, i), img)
-			if err != nil {
-				t.Error(err)
-			}
+		err := c.CompilePath(p)
+		if err != nil {
+			t.Error(err)
 		}
+		icon.SVGPaths = append(icon.SVGPaths, SvgPath{d, c.Path})
+		icon.Draw(raster, 1)
 
+		err = SaveToPngFile(fmt.Sprintf("testdata/fill_%d.png", i), img)
+		if err != nil {
+			t.Error(err)
+		}
 	}
 }
 
@@ -171,13 +163,26 @@ func TestStrokeIcons(t *testing.T) {
 		"TestShapes3.svg",
 		"TestShapes4.svg",
 		"TestShapes5.svg",
+		"TestShapes6.svg",
 	} {
 		t.Log("reading ", p)
 		SaveIcon(t, "testdata/"+p)
 	}
 }
 
-func TestCircleLineIntersect(t *testing.T) {
+func _TestM(t *testing.T) {
+	cx, cy := 120.0, 40.0
+	//dx, dy := 101.0, 100.0
+
+	rotc := Identity.Rotate(math.Pi/3).Translate(cx, cy)
+
+	irot := rotc.Invert()
+	t.Log("rotc", rotc)
+	t.Log("i rotc", irot)
+	t.Log("r*inv", rotc.Mult(irot))
+}
+
+func _TestCircleLineIntersect(t *testing.T) {
 	a := fixed.Point26_6{30 * 64, 55 * 64}
 	b := fixed.Point26_6{40 * 64, 40 * 64}
 	c := fixed.Point26_6{40 * 64, 40 * 64}
