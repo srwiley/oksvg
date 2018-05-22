@@ -29,6 +29,9 @@ Yes: 'color' : all HTML4 names, and formats
 
 'style': Only listed presentation attributes
 
+Yes:
+gradient elements: ‘linearGradient’ and ‘radialGradient’.
+
 No:
 
  — ‘alignment-baseline’, ‘baseline-shift’, ‘clip’, ‘clip-path’, ‘clip-rule’, ‘color-interpolation’, ‘color-interpolation-filters’, ‘color-profile’, ‘color-rendering’, ‘cursor’, ‘direction’, ‘display’, ‘dominant-baseline’, ‘enable-background’, ‘filter’, ‘flood-color’, ‘flood-opacity’, ‘font-family’, ‘font-size’, ‘font-size-adjust’, ‘font-stretch’, ‘font-style’, ‘font-variant’, ‘font-weight’, ‘glyph-orientation-horizontal’, ‘glyph-orientation-vertical’, ‘image-rendering’, ‘kerning’, ‘letter-spacing’, ‘lighting-color’, ‘marker-end’, ‘marker-mid’, ‘marker-start’, ‘mask’,‘overflow’, ‘pointer-events’, ‘shape-rendering’, ‘stop-color’, ‘stop-opacity’, ‘stroke-miterlimit’,  ‘text-anchor’, ‘text-decoration’, ‘text-rendering’, ‘unicode-bidi’, ‘visibility’, ‘word-spacing’, ‘writing-mode’
@@ -42,7 +45,6 @@ conditional processing attributes — ‘requiredFeatures’, ‘requiredExtensi
 
 graphical event attributes — ‘onfocusin’, ‘onfocusout’, ‘onactivate’, ‘onclick’, ‘onmousedown’, ‘onmouseup’, ‘onmouseover’, ‘onmousemove’, ‘onmouseout’, ‘onload’; 
 
-gradient elements: ‘linearGradient’ and ‘radialGradient’.
 
 pattern elements : 'pattern'
 
