@@ -172,7 +172,6 @@ func TestStrokeIcons(t *testing.T) {
 
 func _TestM(t *testing.T) {
 	cx, cy := 120.0, 40.0
-	//dx, dy := 101.0, 100.0
 
 	rotc := Identity.Rotate(math.Pi/3).Translate(cx, cy)
 

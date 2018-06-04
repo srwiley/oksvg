@@ -35,12 +35,12 @@ type (
 		LineWidth, DashOffset, MiterLimit float64
 		Dash                              []float64
 		UseNonZeroWinding                 bool
-		fillerColor, linerColor           interface{} // either color.Color or *Gradient
+		fillerColor, linerColor           interface{} // either color.Color or *rasterx.Gradient
 		LineGap                           rasterx.GapFunc
 		LeadLineCap                       rasterx.CapFunc // This is used if different than LineCap
 		LineCap                           rasterx.CapFunc
 		LineJoin                          rasterx.JoinMode
-		mAdder                            MatrixAdder // current transform
+		mAdder                            rasterx.MatrixAdder // current transform
 	}
 
 	SvgPath struct {
@@ -60,7 +60,7 @@ type (
 		PathCursor
 		icon                                   *SvgIcon
 		StyleStack                             []PathStyle
-		grad                                   *Gradient
+		grad                                   *rasterx.Gradient
 		inTitleText, inDescText, inGrad, inDef bool
 	}
 )
@@ -69,7 +69,7 @@ type (
 // full opacity, no stroke, ButtCap line end and Bevel line connect.
 var DefaultStyle = PathStyle{1.0, 1.0, 2.0, 0.0, 4.0, nil, true,
 	color.NRGBA{0x00, 0x00, 0x00, 0xff}, nil,
-	nil, nil, rasterx.ButtCap, rasterx.Bevel, MatrixAdder{M: Identity}}
+	nil, nil, rasterx.ButtCap, rasterx.Bevel, rasterx.MatrixAdder{M: rasterx.Identity}}
 
 // Draws the compiled SVG icon into the GraphicContext.
 // All elements should be contained by the Bounds rectangle of the SvgIcon.
@@ -77,11 +77,6 @@ func (s *SvgIcon) Draw(r *rasterx.Dasher, opacity float64) {
 	for _, svgp := range s.SVGPaths {
 		svgp.Draw(r, opacity)
 	}
-}
-
-func ApplyOpacity(c color.Color, opacity float64) color.NRGBA {
-	r, g, b, _ := c.RGBA()
-	return color.NRGBA{uint8(r), uint8(g), uint8(b), uint8(opacity * 0xFF)}
 }
 
 // Draw the compiled SvgPath into the GraphicContext.
@@ -96,14 +91,14 @@ func (svgp *SvgPath) Draw(r *rasterx.Dasher, opacity float64) {
 
 		switch fillerColor := svgp.fillerColor.(type) {
 		case color.Color:
-			rf.SetColor(ApplyOpacity(fillerColor, svgp.FillOpacity*opacity))
-		case *Gradient:
-			if fillerColor.units == ObjectBoundingBox {
+			rf.SetColor(rasterx.ApplyOpacity(fillerColor, svgp.FillOpacity*opacity))
+		case *rasterx.Gradient:
+			if fillerColor.Units == rasterx.ObjectBoundingBox {
 				fRect := rf.Scanner.GetPathExtent()
 				mnx, mny := float64(fRect.Min.X)/64, float64(fRect.Min.Y)/64
 				mxx, mxy := float64(fRect.Max.X)/64, float64(fRect.Max.Y)/64
-				fillerColor.bounds.X, fillerColor.bounds.Y = mnx, mny
-				fillerColor.bounds.W, fillerColor.bounds.H = mxx-mnx, mxy-mny
+				fillerColor.Bounds.X, fillerColor.Bounds.Y = mnx, mny
+				fillerColor.Bounds.W, fillerColor.Bounds.H = mxx-mnx, mxy-mny
 			}
 			rf.SetColor(fillerColor.GetColorFunction(svgp.FillOpacity * opacity))
 		}
@@ -132,14 +127,14 @@ func (svgp *SvgPath) Draw(r *rasterx.Dasher, opacity float64) {
 		svgp.Path.AddTo(&svgp.mAdder)
 		switch linerColor := svgp.linerColor.(type) {
 		case color.Color:
-			r.SetColor(ApplyOpacity(linerColor, svgp.LineOpacity*opacity))
-		case *Gradient:
-			if linerColor.units == ObjectBoundingBox {
+			r.SetColor(rasterx.ApplyOpacity(linerColor, svgp.LineOpacity*opacity))
+		case *rasterx.Gradient:
+			if linerColor.Units == rasterx.ObjectBoundingBox {
 				fRect := r.Scanner.GetPathExtent()
 				mnx, mny := float64(fRect.Min.X)/64, float64(fRect.Min.Y)/64
 				mxx, mxy := float64(fRect.Max.X)/64, float64(fRect.Max.Y)/64
-				linerColor.bounds.X, linerColor.bounds.Y = mnx, mny
-				linerColor.bounds.W, linerColor.bounds.H = mxx-mnx, mxy-mny
+				linerColor.Bounds.X, linerColor.Bounds.Y = mnx, mny
+				linerColor.Bounds.W, linerColor.Bounds.H = mxx-mnx, mxy-mny
 			}
 			r.SetColor(linerColor.GetColorFunction(svgp.LineOpacity * opacity))
 		}
@@ -235,7 +230,7 @@ func parseColorValue(v string) (uint8, error) {
 	return uint8(n), err
 }
 
-func (c *IconCursor) parseTransform(v string) (Matrix2D, error) {
+func (c *IconCursor) parseTransform(v string) (rasterx.Matrix2D, error) {
 	ts := strings.Split(v, ")")
 	m1 := c.StyleStack[len(c.StyleStack)-1].mAdder.M
 	for _, t := range ts {
@@ -293,7 +288,7 @@ func (c *IconCursor) parseTransform(v string) (Matrix2D, error) {
 			}
 		case "matrix":
 			if ln == 6 {
-				m1 = m1.Mult(Matrix2D{
+				m1 = m1.Mult(rasterx.Matrix2D{
 					c.points[0],
 					c.points[1],
 					c.points[2],
@@ -674,8 +669,8 @@ func ReadIcon(iconFile string, errMode ...ErrorMode) (*SvgIcon, error) {
 				cursor.inDef = true
 			case "linearGradient":
 				cursor.inGrad = true
-				cursor.grad = &Gradient{points: [5]float64{0, 0, 1, 0, 0},
-					isRadial: false, bounds: icon.ViewBox, matrix2D: Identity}
+				cursor.grad = &rasterx.Gradient{Points: [5]float64{0, 0, 1, 0, 0},
+					IsRadial: false, Bounds: icon.ViewBox, Matrix: rasterx.Identity}
 				for _, attr := range se.Attr {
 					switch attr.Name.Local {
 					case "id":
@@ -686,13 +681,13 @@ func ReadIcon(iconFile string, errMode ...ErrorMode) (*SvgIcon, error) {
 							return icon, zeroLengthIdError
 						}
 					case "x1":
-						cursor.grad.points[0], err = readFraction(attr.Value)
+						cursor.grad.Points[0], err = readFraction(attr.Value)
 					case "y1":
-						cursor.grad.points[1], err = readFraction(attr.Value)
+						cursor.grad.Points[1], err = readFraction(attr.Value)
 					case "x2":
-						cursor.grad.points[2], err = readFraction(attr.Value)
+						cursor.grad.Points[2], err = readFraction(attr.Value)
 					case "y2":
-						cursor.grad.points[3], err = readFraction(attr.Value)
+						cursor.grad.Points[3], err = readFraction(attr.Value)
 					default:
 						err = cursor.ReadGradAttr(attr)
 					}
@@ -702,8 +697,8 @@ func ReadIcon(iconFile string, errMode ...ErrorMode) (*SvgIcon, error) {
 				}
 			case "radialGradient":
 				cursor.inGrad = true
-				cursor.grad = &Gradient{points: [5]float64{0.5, 0.5, 0.5, 0.5, 0.5},
-					isRadial: true, bounds: icon.ViewBox, matrix2D: Identity}
+				cursor.grad = &rasterx.Gradient{Points: [5]float64{0.5, 0.5, 0.5, 0.5, 0.5},
+					IsRadial: true, Bounds: icon.ViewBox, Matrix: rasterx.Identity}
 				var setFx, setFy bool
 				for _, attr := range se.Attr {
 					switch attr.Name.Local {
@@ -715,17 +710,17 @@ func ReadIcon(iconFile string, errMode ...ErrorMode) (*SvgIcon, error) {
 							return icon, zeroLengthIdError
 						}
 					case "r":
-						cursor.grad.points[4], err = readFraction(attr.Value)
+						cursor.grad.Points[4], err = readFraction(attr.Value)
 					case "cx":
-						cursor.grad.points[0], err = readFraction(attr.Value)
+						cursor.grad.Points[0], err = readFraction(attr.Value)
 					case "cy":
-						cursor.grad.points[1], err = readFraction(attr.Value)
+						cursor.grad.Points[1], err = readFraction(attr.Value)
 					case "fx":
 						setFx = true
-						cursor.grad.points[2], err = readFraction(attr.Value)
+						cursor.grad.Points[2], err = readFraction(attr.Value)
 					case "fy":
 						setFy = true
-						cursor.grad.points[3], err = readFraction(attr.Value)
+						cursor.grad.Points[3], err = readFraction(attr.Value)
 					default:
 						err = cursor.ReadGradAttr(attr)
 					}
@@ -734,29 +729,29 @@ func ReadIcon(iconFile string, errMode ...ErrorMode) (*SvgIcon, error) {
 					}
 				}
 				if setFx == false { // set fx to cx by default
-					cursor.grad.points[2] = cursor.grad.points[0]
+					cursor.grad.Points[2] = cursor.grad.Points[0]
 				}
 				if setFy == false { // set fy to cy by default
-					cursor.grad.points[3] = cursor.grad.points[1]
+					cursor.grad.Points[3] = cursor.grad.Points[1]
 				}
 			case "stop":
 				if cursor.inGrad {
-					stop := &GradStop{opacity: 1.0}
+					stop := rasterx.GradStop{Opacity: 1.0}
 					for _, attr := range se.Attr {
 						switch attr.Name.Local {
 						case "offset":
-							stop.offset, err = readFraction(attr.Value)
+							stop.Offset, err = readFraction(attr.Value)
 						case "stop-color":
 							//todo: add current color inherit
-							stop.stopColor, err = ParseSVGColor(attr.Value)
+							stop.StopColor, err = ParseSVGColor(attr.Value)
 						case "stop-opacity":
-							stop.opacity, err = strconv.ParseFloat(attr.Value, 64)
+							stop.Opacity, err = strconv.ParseFloat(attr.Value, 64)
 						}
 						if err != nil {
 							return icon, err
 						}
 					}
-					cursor.grad.stops = append(cursor.grad.stops, stop)
+					cursor.grad.Stops = append(cursor.grad.Stops, stop)
 				}
 
 			default:
@@ -816,12 +811,12 @@ func readFraction(v string) (f float64, err error) {
 	return
 }
 
-func (c *IconCursor) ReadGradUrl(v string) (grad *Gradient, err error) {
+func (c *IconCursor) ReadGradUrl(v string) (grad *rasterx.Gradient, err error) {
 	if strings.HasPrefix(v, "url(") && strings.HasSuffix(v, ")") {
 		urlStr := strings.TrimSpace(v[4 : len(v)-1])
 		if strings.HasPrefix(urlStr, "#") {
 			switch grad := c.icon.Ids[urlStr[1:]].(type) {
-			case *Gradient:
+			case *rasterx.Gradient:
 				return grad, nil
 			default:
 				return nil, nil //missingIdError
@@ -835,22 +830,22 @@ func (c *IconCursor) ReadGradUrl(v string) (grad *Gradient, err error) {
 func (cursor *IconCursor) ReadGradAttr(attr xml.Attr) (err error) {
 	switch attr.Name.Local {
 	case "gradientTransform":
-		cursor.grad.matrix2D, err = cursor.parseTransform(attr.Value)
+		cursor.grad.Matrix, err = cursor.parseTransform(attr.Value)
 	case "gradientUnits":
 		switch strings.TrimSpace(attr.Value) {
 		case "userSpaceOnUse":
-			cursor.grad.units = UserSpaceOnUse
+			cursor.grad.Units = rasterx.UserSpaceOnUse
 		case "objectBoundingBox":
-			cursor.grad.units = ObjectBoundingBox
+			cursor.grad.Units = rasterx.ObjectBoundingBox
 		}
 	case "spreadMethod":
 		switch strings.TrimSpace(attr.Value) {
 		case "pad":
-			cursor.grad.spread = PadSpread
+			cursor.grad.Spread = rasterx.PadSpread
 		case "reflect":
-			cursor.grad.spread = ReflectSpread
+			cursor.grad.Spread = rasterx.ReflectSpread
 		case "repeat":
-			cursor.grad.spread = RepeatSpread
+			cursor.grad.Spread = rasterx.RepeatSpread
 		}
 	}
 	return nil
