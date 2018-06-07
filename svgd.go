@@ -542,7 +542,7 @@ func ReadIcon(iconFile string, errMode ...ErrorMode) (*SvgIcon, error) {
 				}
 			case "g": // G does nothing but push the style
 			case "rect":
-				var x, y, w, h float64
+				var x, y, w, h, rx, ry float64
 				for _, attr := range se.Attr {
 					switch attr.Name.Local {
 					case "x":
@@ -553,6 +553,10 @@ func ReadIcon(iconFile string, errMode ...ErrorMode) (*SvgIcon, error) {
 						w, err = strconv.ParseFloat(attr.Value, 64)
 					case "height":
 						h, err = strconv.ParseFloat(attr.Value, 64)
+					case "rx":
+						rx, err = strconv.ParseFloat(attr.Value, 64)
+					case "ry":
+						ry, err = strconv.ParseFloat(attr.Value, 64)
 					}
 					if err != nil {
 						return icon, err
@@ -561,21 +565,7 @@ func ReadIcon(iconFile string, errMode ...ErrorMode) (*SvgIcon, error) {
 				if w == 0 || h == 0 {
 					break
 				}
-				startPt := fixed.Point26_6{
-					fixed.Int26_6(x * 64),
-					fixed.Int26_6(y * 64)}
-				cursor.Path.Start(startPt)
-				cursor.Path.Line(fixed.Point26_6{
-					fixed.Int26_6((x + w) * 64),
-					fixed.Int26_6(y * 64)})
-				cursor.Path.Line(fixed.Point26_6{
-					fixed.Int26_6((x + w) * 64),
-					fixed.Int26_6((y + h) * 64)})
-				cursor.Path.Line(fixed.Point26_6{
-					fixed.Int26_6(x * 64),
-					fixed.Int26_6((y + h) * 64)})
-				cursor.Path.Line(startPt)
-				cursor.Path.Stop(true)
+				rasterx.AddRoundRect(x, y, w+x, h+y, rx, ry, 0, rasterx.RoundGap, &cursor.Path)
 			case "circle", "ellipse":
 				var cx, cy, rx, ry float64
 				for _, attr := range se.Attr {
@@ -599,7 +589,7 @@ func ReadIcon(iconFile string, errMode ...ErrorMode) (*SvgIcon, error) {
 				if rx == 0 || ry == 0 { // not drawn, but not an error
 					break
 				}
-				cursor.ElipseAt(cx, cy, rx, ry)
+				cursor.EllipseAt(cx, cy, rx, ry)
 			case "line":
 				var x1, x2, y1, y2 float64
 				for _, attr := range se.Attr {
