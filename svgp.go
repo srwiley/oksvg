@@ -314,7 +314,7 @@ func (c *PathCursor) addSeg(segString string) error {
 	return nil
 }
 
-func (c *PathCursor) ElipseAt(cx, cy, rx, ry float64) {
+func (c *PathCursor) EllipseAt(cx, cy, rx, ry float64) {
 	c.placeX, c.placeY = cx+rx, cy
 	c.points = c.points[0:0]
 	c.points = append(c.points, rx, ry, 0.0, 1.0, 0.0, c.placeX, c.placeY)
