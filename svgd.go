@@ -100,7 +100,7 @@ func (svgp *SvgPath) Draw(r *rasterx.Dasher, opacity float64) {
 				fillerColor.Bounds.X, fillerColor.Bounds.Y = mnx, mny
 				fillerColor.Bounds.W, fillerColor.Bounds.H = mxx-mnx, mxy-mny
 			}
-			rf.SetColor(fillerColor.GetColorFunction(svgp.FillOpacity * opacity))
+			rf.SetColor(fillerColor.GetColorFunction(svgp.FillOpacity*opacity, rasterx.Identity))
 		}
 		rf.Draw()
 		// default is true
@@ -136,7 +136,7 @@ func (svgp *SvgPath) Draw(r *rasterx.Dasher, opacity float64) {
 				linerColor.Bounds.X, linerColor.Bounds.Y = mnx, mny
 				linerColor.Bounds.W, linerColor.Bounds.H = mxx-mnx, mxy-mny
 			}
-			r.SetColor(linerColor.GetColorFunction(svgp.LineOpacity * opacity))
+			r.SetColor(linerColor.GetColorFunction(svgp.LineOpacity*opacity, rasterx.Identity))
 		}
 		r.Draw()
 	}
