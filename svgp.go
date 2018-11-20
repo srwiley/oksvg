@@ -79,7 +79,24 @@ func (c *PathCursor) hasSetsOrMore(sz int, rel bool) bool {
 }
 
 // ReadFloat reads a floating point value and adds it to the cursor's points slice.
+// This will also recognise "1.2.3" style numbers as two points "1.2 0.3" and
+// "1.2.3.4" as "1.2 0.3 0.4".
 func (c *PathCursor) ReadFloat(numStr string) error {
+	extra := false
+	for p, n := range numStr {
+		if n == '.' {
+			if extra {
+				err := c.ReadFloat(numStr[0:p])
+				if err != nil {
+					return err
+				} else {
+					return c.ReadFloat("0" + numStr[p:])
+				}
+			}
+			extra = true
+		}
+	}
+
 	f, err := strconv.ParseFloat(numStr, 64)
 	if err != nil {
 		return err
