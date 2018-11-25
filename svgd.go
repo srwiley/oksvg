@@ -525,9 +525,13 @@ func ReadIcon(iconFile string, errMode ...ErrorMode) (*SvgIcon, error) {
 						icon.ViewBox.H = cursor.points[3]
 					case "width":
 						wn := strings.TrimSuffix(attr.Value, "cm")
+						wn = strings.TrimSuffix(wn, "mm")
+						wn = strings.TrimSuffix(wn, "px")
 						width, err = strconv.ParseFloat(wn, 64)
 					case "height":
 						hn := strings.TrimSuffix(attr.Value, "cm")
+						hn = strings.TrimSuffix(hn, "mm")
+						hn = strings.TrimSuffix(hn, "px")
 						height, err = strconv.ParseFloat(hn, 64)
 					}
 					if err != nil {
