@@ -6,7 +6,6 @@ import (
 	"bufio"
 	"fmt"
 	"image"
-	"math"
 	"os"
 
 	"image/png"
@@ -15,9 +14,7 @@ import (
 
 	. "github.com/srwiley/oksvg"
 	. "github.com/srwiley/rasterx"
-
 	//"github.com/srwiley/go/scanFT"
-	"golang.org/x/image/math/fixed"
 )
 
 const testArco = `M150,350 l 50,-55 
@@ -168,24 +165,4 @@ func TestStrokeIcons(t *testing.T) {
 		t.Log("reading ", p)
 		SaveIcon(t, "testdata/"+p)
 	}
-}
-
-func _TestM(t *testing.T) {
-	cx, cy := 120.0, 40.0
-
-	rotc := Identity.Rotate(math.Pi/3).Translate(cx, cy)
-
-	irot := rotc.Invert()
-	t.Log("rotc", rotc)
-	t.Log("i rotc", irot)
-	t.Log("r*inv", rotc.Mult(irot))
-}
-
-func _TestCircleLineIntersect(t *testing.T) {
-	a := fixed.Point26_6{30 * 64, 55 * 64}
-	b := fixed.Point26_6{40 * 64, 40 * 64}
-	c := fixed.Point26_6{40 * 64, 40 * 64}
-	r := fixed.Int26_6(10 * 64)
-	x1, touching := RayCircleIntersection(a, b, c, r)
-	t.Log("x1, t ", x1, touching)
 }
