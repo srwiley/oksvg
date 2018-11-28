@@ -141,8 +141,6 @@ func (c *PathCursor) addSeg(segString string) error {
 			c.inPath = false
 		}
 	case 'm':
-		c.placeX = 0
-		c.placeY = 0
 		rel = true
 		fallthrough
 	case 'M':
