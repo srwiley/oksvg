@@ -30,6 +30,7 @@ import (
 )
 
 type (
+	// PathStyle holds the state of the SVG style
 	PathStyle struct {
 		FillOpacity, LineOpacity          float64
 		LineWidth, DashOffset, MiterLimit float64
@@ -43,11 +44,13 @@ type (
 		mAdder                            rasterx.MatrixAdder // current transform
 	}
 
+	// SvgPath binds a style to a path
 	SvgPath struct {
 		PathStyle
 		Path rasterx.Path
 	}
 
+	// SvgIcon holds data from parse SVGs
 	SvgIcon struct {
 		ViewBox      struct{ X, Y, W, H float64 }
 		Titles       []string // Title elements collect here
@@ -56,6 +59,7 @@ type (
 		SVGPaths     []SvgPath
 	}
 
+	// IconCursor is used while parsing SVG files
 	IconCursor struct {
 		PathCursor
 		icon                                   *SvgIcon
@@ -71,7 +75,7 @@ var DefaultStyle = PathStyle{1.0, 1.0, 2.0, 0.0, 4.0, nil, true,
 	color.NRGBA{0x00, 0x00, 0x00, 0xff}, nil,
 	nil, nil, rasterx.ButtCap, rasterx.Bevel, rasterx.MatrixAdder{M: rasterx.Identity}}
 
-// Draws the compiled SVG icon into the GraphicContext.
+// Draw the compiled SVG icon into the GraphicContext.
 // All elements should be contained by the Bounds rectangle of the SvgIcon.
 func (s *SvgIcon) Draw(r *rasterx.Dasher, opacity float64) {
 	for _, svgp := range s.SVGPaths {
@@ -193,7 +197,7 @@ func ParseSVGColor(colorStr string) (color.Color, error) {
 		cStr := strings.TrimSuffix(cStr, ")")
 		vals := strings.Split(cStr, ",")
 		if len(vals) != 3 {
-			return color.NRGBA{}, paramMismatchError
+			return color.NRGBA{}, errParamMismatch
 		}
 		var cvals [3]uint8
 		var err error
@@ -212,7 +216,7 @@ func ParseSVGColor(colorStr string) (color.Color, error) {
 		}
 		return color.NRGBA{r, g, b, 0xFF}, nil
 	}
-	return nil, paramMismatchError
+	return nil, errParamMismatch
 }
 
 func parseColorValue(v string) (uint8, error) {
@@ -240,7 +244,7 @@ func (c *IconCursor) parseTransform(v string) (rasterx.Matrix2D, error) {
 		}
 		d := strings.Split(t, "(")
 		if len(d) != 2 || len(d[1]) < 1 {
-			return m1, paramMismatchError // badly formed transformation
+			return m1, errParamMismatch // badly formed transformation
 		}
 		err := c.GetPoints(d[1])
 		if err != nil {
@@ -256,7 +260,7 @@ func (c *IconCursor) parseTransform(v string) (rasterx.Matrix2D, error) {
 					Rotate(c.points[0]*math.Pi/180).
 					Translate(-c.points[1], -c.points[2])
 			} else {
-				return m1, paramMismatchError
+				return m1, errParamMismatch
 			}
 		case "translate":
 			if ln == 1 {
@@ -264,19 +268,19 @@ func (c *IconCursor) parseTransform(v string) (rasterx.Matrix2D, error) {
 			} else if ln == 2 {
 				m1 = m1.Translate(c.points[0], c.points[1])
 			} else {
-				return m1, paramMismatchError
+				return m1, errParamMismatch
 			}
 		case "skewx":
 			if ln == 1 {
 				m1 = m1.SkewX(c.points[0] * math.Pi / 180)
 			} else {
-				return m1, paramMismatchError
+				return m1, errParamMismatch
 			}
 		case "skewy":
 			if ln == 1 {
 				m1 = m1.SkewY(c.points[0] * math.Pi / 180)
 			} else {
-				return m1, paramMismatchError
+				return m1, errParamMismatch
 			}
 		case "scale":
 			if ln == 1 {
@@ -284,22 +288,22 @@ func (c *IconCursor) parseTransform(v string) (rasterx.Matrix2D, error) {
 			} else if ln == 2 {
 				m1 = m1.Scale(c.points[0], c.points[1])
 			} else {
-				return m1, paramMismatchError
+				return m1, errParamMismatch
 			}
 		case "matrix":
 			if ln == 6 {
 				m1 = m1.Mult(rasterx.Matrix2D{
-					c.points[0],
-					c.points[1],
-					c.points[2],
-					c.points[3],
-					c.points[4],
-					c.points[5]})
+					A: c.points[0],
+					B: c.points[1],
+					C: c.points[2],
+					D: c.points[3],
+					E: c.points[4],
+					F: c.points[5]})
 			} else {
-				return m1, paramMismatchError
+				return m1, errParamMismatch
 			}
 		default:
-			return m1, paramMismatchError
+			return m1, errParamMismatch
 		}
 	}
 	return m1, nil
@@ -328,7 +332,7 @@ func (c *IconCursor) PushStyle(se xml.StartElement) error {
 			v := strings.TrimSpace(kv[1])
 			switch k {
 			case "fill":
-				gradient, err := c.ReadGradUrl(v)
+				gradient, err := c.ReadGradURL(v)
 				if err != nil {
 					return err
 				}
@@ -341,7 +345,7 @@ func (c *IconCursor) PushStyle(se xml.StartElement) error {
 					return err
 				}
 			case "stroke":
-				gradient, err := c.ReadGradUrl(v)
+				gradient, err := c.ReadGradURL(v)
 				if err != nil {
 					return err
 				}
@@ -467,11 +471,23 @@ func (c *IconCursor) PushStyle(se xml.StartElement) error {
 	return nil
 }
 
+// unitSuffixes are suffixes sometimes applied to the width and height attributes
+// of the svg element.
+var unitSuffixes = [3]string{"cm", "mm", "px"}
+
+func trimSuffixes(a string) (b string) {
+	b = a
+	for _, v := range unitSuffixes {
+		b = strings.TrimSuffix(b, v)
+	}
+	return
+}
+
 // ReadIcon reads the Icon from the named file
 // This only supports a sub-set of SVG, but
 // is enough to draw many icons. If errMode is provided,
 // the first value determines if the icon ignores, errors out, or logs a warning
-// if it does not handle an element found in the iconFile. Ignore warnings is
+// if it does not handle an element found in the icon file. Ignore warnings is
 // the default if no ErrorMode value is provided.
 func ReadIcon(iconFile string, errMode ...ErrorMode) (*SvgIcon, error) {
 	fin, errf := os.Open(iconFile)
@@ -517,21 +533,17 @@ func ReadIcon(iconFile string, errMode ...ErrorMode) (*SvgIcon, error) {
 					case "viewBox":
 						err = cursor.GetPoints(attr.Value)
 						if len(cursor.points) != 4 {
-							return icon, paramMismatchError
+							return icon, errParamMismatch
 						}
 						icon.ViewBox.X = cursor.points[0]
 						icon.ViewBox.Y = cursor.points[1]
 						icon.ViewBox.W = cursor.points[2]
 						icon.ViewBox.H = cursor.points[3]
 					case "width":
-						wn := strings.TrimSuffix(attr.Value, "cm")
-						wn = strings.TrimSuffix(wn, "mm")
-						wn = strings.TrimSuffix(wn, "px")
+						wn := trimSuffixes(attr.Value)
 						width, err = strconv.ParseFloat(wn, 64)
 					case "height":
-						hn := strings.TrimSuffix(attr.Value, "cm")
-						hn = strings.TrimSuffix(hn, "mm")
-						hn = strings.TrimSuffix(hn, "px")
+						hn := trimSuffixes(attr.Value)
 						height, err = strconv.ParseFloat(hn, 64)
 					}
 					if err != nil {
@@ -612,11 +624,11 @@ func ReadIcon(iconFile string, errMode ...ErrorMode) (*SvgIcon, error) {
 					}
 				}
 				cursor.Path.Start(fixed.Point26_6{
-					fixed.Int26_6(x1 * 64),
-					fixed.Int26_6(y1 * 64)})
+					X: fixed.Int26_6(x1 * 64),
+					Y: fixed.Int26_6(y1 * 64)})
 				cursor.Path.Line(fixed.Point26_6{
-					fixed.Int26_6(x2 * 64),
-					fixed.Int26_6(y2 * 64)})
+					X: fixed.Int26_6(x2 * 64),
+					Y: fixed.Int26_6(y2 * 64)})
 			case "polygon", "polyline":
 				for _, attr := range se.Attr {
 					switch attr.Name.Local {
@@ -632,12 +644,12 @@ func ReadIcon(iconFile string, errMode ...ErrorMode) (*SvgIcon, error) {
 				}
 				if len(cursor.points) > 4 {
 					cursor.Path.Start(fixed.Point26_6{
-						fixed.Int26_6(cursor.points[0] * 64),
-						fixed.Int26_6(cursor.points[1] * 64)})
+						X: fixed.Int26_6(cursor.points[0] * 64),
+						Y: fixed.Int26_6(cursor.points[1] * 64)})
 					for i := 2; i < len(cursor.points)-1; i += 2 {
 						cursor.Path.Line(fixed.Point26_6{
-							fixed.Int26_6(cursor.points[i] * 64),
-							fixed.Int26_6(cursor.points[i+1] * 64)})
+							X: fixed.Int26_6(cursor.points[i] * 64),
+							Y: fixed.Int26_6(cursor.points[i+1] * 64)})
 					}
 					if se.Name.Local == "polygon" { // SVG spec sez polylines dont have close
 						cursor.Path.Stop(true)
@@ -672,7 +684,7 @@ func ReadIcon(iconFile string, errMode ...ErrorMode) (*SvgIcon, error) {
 						if len(id) >= 0 {
 							icon.Ids[id] = cursor.grad
 						} else {
-							return icon, zeroLengthIdError
+							return icon, errZeroLengthID
 						}
 					case "x1":
 						cursor.grad.Points[0], err = readFraction(attr.Value)
@@ -701,7 +713,7 @@ func ReadIcon(iconFile string, errMode ...ErrorMode) (*SvgIcon, error) {
 						if len(id) >= 0 {
 							icon.Ids[id] = cursor.grad
 						} else {
-							return icon, zeroLengthIdError
+							return icon, errZeroLengthID
 						}
 					case "r":
 						cursor.grad.Points[4], err = readFraction(attr.Value)
@@ -805,7 +817,8 @@ func readFraction(v string) (f float64, err error) {
 	return
 }
 
-func (c *IconCursor) ReadGradUrl(v string) (grad *rasterx.Gradient, err error) {
+// ReadGradURL reads an SVG format gradient url
+func (c *IconCursor) ReadGradURL(v string) (grad *rasterx.Gradient, err error) {
 	if strings.HasPrefix(v, "url(") && strings.HasSuffix(v, ")") {
 		urlStr := strings.TrimSpace(v[4 : len(v)-1])
 		if strings.HasPrefix(urlStr, "#") {
@@ -821,25 +834,26 @@ func (c *IconCursor) ReadGradUrl(v string) (grad *rasterx.Gradient, err error) {
 	return nil, nil // not a gradient url, and not an error
 }
 
-func (cursor *IconCursor) ReadGradAttr(attr xml.Attr) (err error) {
+// ReadGradAttr reads an SVG gradient attribute
+func (c *IconCursor) ReadGradAttr(attr xml.Attr) (err error) {
 	switch attr.Name.Local {
 	case "gradientTransform":
-		cursor.grad.Matrix, err = cursor.parseTransform(attr.Value)
+		c.grad.Matrix, err = c.parseTransform(attr.Value)
 	case "gradientUnits":
 		switch strings.TrimSpace(attr.Value) {
 		case "userSpaceOnUse":
-			cursor.grad.Units = rasterx.UserSpaceOnUse
+			c.grad.Units = rasterx.UserSpaceOnUse
 		case "objectBoundingBox":
-			cursor.grad.Units = rasterx.ObjectBoundingBox
+			c.grad.Units = rasterx.ObjectBoundingBox
 		}
 	case "spreadMethod":
 		switch strings.TrimSpace(attr.Value) {
 		case "pad":
-			cursor.grad.Spread = rasterx.PadSpread
+			c.grad.Spread = rasterx.PadSpread
 		case "reflect":
-			cursor.grad.Spread = rasterx.ReflectSpread
+			c.grad.Spread = rasterx.ReflectSpread
 		case "repeat":
-			cursor.grad.Spread = rasterx.RepeatSpread
+			c.grad.Spread = rasterx.RepeatSpread
 		}
 	}
 	return nil

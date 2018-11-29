@@ -105,7 +105,7 @@ func SaveToPngFile(filePath string, m image.Image) error {
 	return nil
 }
 
-func _TestSvgPathsStroke(t *testing.T) {
+func TestSvgPathsStroke(t *testing.T) {
 	for i, p := range []string{testArco, testArco2, testArcoS,
 		testSVG0, testSVG1, testSVG2, testSVG3, testSVG4, testSVG5,
 		testSVG6, testSVG7, testSVG8, testSVG9, testSVG10,
@@ -125,7 +125,7 @@ func _TestSvgPathsStroke(t *testing.T) {
 		if err != nil {
 			t.Error(err)
 		}
-		icon.SVGPaths = append(icon.SVGPaths, SvgPath{d, c.Path})
+		icon.SVGPaths = append(icon.SVGPaths, SvgPath{PathStyle: d, Path: c.Path})
 		icon.Draw(raster, 1)
 
 		err = SaveToPngFile(fmt.Sprintf("testdata/fill_%d.png", i), img)
