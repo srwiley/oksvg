@@ -51,6 +51,30 @@ const testSVG11 = `M20,50 c200,200 800,200 400,300,200,200 800,200 400,300s500,3
 const testSVG12 = `M100,100 Q400,100 250,250 T400,400z`
 const testSVG13 = `M100,100 Q400,100 250,250 t150,150,150,150z`
 
+func TestTransform(t *testing.T) {
+	icon, errSvg := ReadIcon("testdata/landscapeIcons/sea.svg", WarnErrorMode)
+	if errSvg != nil {
+		t.Error(errSvg)
+	}
+	w, h := int(icon.ViewBox.W), int(icon.ViewBox.H)
+	img := image.NewRGBA(image.Rect(0, 0, w*3, h*3))
+
+	scannerGV := NewScannerGV(w*3, h*3, img, img.Bounds())
+
+	raster := NewDasher(w*3, h*3, scannerGV)
+	icon.Draw(raster, 1.0)
+	icon.Transform = Identity.Translate(float64(w), float64(h))
+	icon.Draw(raster, 1.0)
+
+	icon.SetTarget(float64(w), float64(0), float64(w), float64(h)*.5)
+	icon.Draw(raster, 1.0)
+
+	err := SaveToPngFile(fmt.Sprintf("testdata/transform.png"), img)
+	if err != nil {
+		t.Error(err)
+	}
+}
+
 func DrawIcon(t *testing.T, iconPath string) image.Image {
 	icon, errSvg := ReadIcon(iconPath, WarnErrorMode)
 	if errSvg != nil {

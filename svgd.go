@@ -50,13 +50,14 @@ type (
 		Path rasterx.Path
 	}
 
-	// SvgIcon holds data from parse SVGs
+	// SvgIcon holds data from parsed SVGs
 	SvgIcon struct {
 		ViewBox      struct{ X, Y, W, H float64 }
 		Titles       []string // Title elements collect here
 		Descriptions []string // Description elements collect here
 		Ids          map[string]interface{}
 		SVGPaths     []SvgPath
+		Transform    rasterx.Matrix2D
 	}
 
 	// IconCursor is used while parsing SVG files
@@ -79,13 +80,28 @@ var DefaultStyle = PathStyle{1.0, 1.0, 2.0, 0.0, 4.0, nil, true,
 // All elements should be contained by the Bounds rectangle of the SvgIcon.
 func (s *SvgIcon) Draw(r *rasterx.Dasher, opacity float64) {
 	for _, svgp := range s.SVGPaths {
-		svgp.Draw(r, opacity)
+		svgp.DrawTransformed(r, opacity, s.Transform)
 	}
 }
 
-// Draw the compiled SvgPath into the GraphicContext.
-// All elements should be contained by the Bounds rectangle of the SvgIcon.
+// SetTarget sets the Transform matrix to draw within the bounds of the rectangle arguments
+func (s *SvgIcon) SetTarget(x, y, w, h float64) {
+	scaleW := w / s.ViewBox.W
+	scaleH := h / s.ViewBox.H
+	s.Transform = rasterx.Identity.Translate(x-s.ViewBox.X, y-s.ViewBox.Y).Scale(scaleW, scaleH)
+
+}
+
+// Draw the compiled SvgPath into the Dasher.
 func (svgp *SvgPath) Draw(r *rasterx.Dasher, opacity float64) {
+	svgp.DrawTransformed(r, opacity, rasterx.Identity)
+}
+
+// DrawTransformed draws the compiled SvgPath into the Dasher while applying transform t.
+func (svgp *SvgPath) DrawTransformed(r *rasterx.Dasher, opacity float64, t rasterx.Matrix2D) {
+	m := svgp.mAdder.M
+	svgp.mAdder.M = t.Mult(m)
+	defer func() { svgp.mAdder.M = m }() // Restore untransformed matrix
 	if svgp.fillerColor != nil {
 		r.Clear()
 		rf := &r.Filler
@@ -496,7 +512,7 @@ func ReadIcon(iconFile string, errMode ...ErrorMode) (*SvgIcon, error) {
 	}
 	defer fin.Close()
 
-	icon := &SvgIcon{Ids: make(map[string]interface{})}
+	icon := &SvgIcon{Ids: make(map[string]interface{}), Transform: rasterx.Identity}
 	cursor := &IconCursor{StyleStack: []PathStyle{DefaultStyle}, icon: icon}
 	if len(errMode) > 0 {
 		cursor.ErrorMode = errMode[0]
