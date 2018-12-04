@@ -250,6 +250,65 @@ func parseColorValue(v string) (uint8, error) {
 	return uint8(n), err
 }
 
+func (c *IconCursor) readTransformAttr(m1 rasterx.Matrix2D, k string) (rasterx.Matrix2D, error) {
+	ln := len(c.points)
+	switch k {
+	case "rotate":
+		if ln == 1 {
+			m1 = m1.Rotate(c.points[0] * math.Pi / 180)
+		} else if ln == 3 {
+			m1 = m1.Translate(c.points[1], c.points[2]).
+				Rotate(c.points[0]*math.Pi/180).
+				Translate(-c.points[1], -c.points[2])
+		} else {
+			return m1, errParamMismatch
+		}
+	case "translate":
+		if ln == 1 {
+			m1 = m1.Translate(c.points[0], 0)
+		} else if ln == 2 {
+			m1 = m1.Translate(c.points[0], c.points[1])
+		} else {
+			return m1, errParamMismatch
+		}
+	case "skewx":
+		if ln == 1 {
+			m1 = m1.SkewX(c.points[0] * math.Pi / 180)
+		} else {
+			return m1, errParamMismatch
+		}
+	case "skewy":
+		if ln == 1 {
+			m1 = m1.SkewY(c.points[0] * math.Pi / 180)
+		} else {
+			return m1, errParamMismatch
+		}
+	case "scale":
+		if ln == 1 {
+			m1 = m1.Scale(c.points[0], 0)
+		} else if ln == 2 {
+			m1 = m1.Scale(c.points[0], c.points[1])
+		} else {
+			return m1, errParamMismatch
+		}
+	case "matrix":
+		if ln == 6 {
+			m1 = m1.Mult(rasterx.Matrix2D{
+				A: c.points[0],
+				B: c.points[1],
+				C: c.points[2],
+				D: c.points[3],
+				E: c.points[4],
+				F: c.points[5]})
+		} else {
+			return m1, errParamMismatch
+		}
+	default:
+		return m1, errParamMismatch
+	}
+	return m1, nil
+}
+
 func (c *IconCursor) parseTransform(v string) (rasterx.Matrix2D, error) {
 	ts := strings.Split(v, ")")
 	m1 := c.StyleStack[len(c.StyleStack)-1].mAdder.M
@@ -266,63 +325,150 @@ func (c *IconCursor) parseTransform(v string) (rasterx.Matrix2D, error) {
 		if err != nil {
 			return m1, err
 		}
-		ln := len(c.points)
-		switch strings.ToLower(strings.TrimSpace(d[0])) {
-		case "rotate":
-			if ln == 1 {
-				m1 = m1.Rotate(c.points[0] * math.Pi / 180)
-			} else if ln == 3 {
-				m1 = m1.Translate(c.points[1], c.points[2]).
-					Rotate(c.points[0]*math.Pi/180).
-					Translate(-c.points[1], -c.points[2])
-			} else {
-				return m1, errParamMismatch
-			}
-		case "translate":
-			if ln == 1 {
-				m1 = m1.Translate(c.points[0], 0)
-			} else if ln == 2 {
-				m1 = m1.Translate(c.points[0], c.points[1])
-			} else {
-				return m1, errParamMismatch
-			}
-		case "skewx":
-			if ln == 1 {
-				m1 = m1.SkewX(c.points[0] * math.Pi / 180)
-			} else {
-				return m1, errParamMismatch
-			}
-		case "skewy":
-			if ln == 1 {
-				m1 = m1.SkewY(c.points[0] * math.Pi / 180)
-			} else {
-				return m1, errParamMismatch
-			}
-		case "scale":
-			if ln == 1 {
-				m1 = m1.Scale(c.points[0], 0)
-			} else if ln == 2 {
-				m1 = m1.Scale(c.points[0], c.points[1])
-			} else {
-				return m1, errParamMismatch
-			}
-		case "matrix":
-			if ln == 6 {
-				m1 = m1.Mult(rasterx.Matrix2D{
-					A: c.points[0],
-					B: c.points[1],
-					C: c.points[2],
-					D: c.points[3],
-					E: c.points[4],
-					F: c.points[5]})
-			} else {
-				return m1, errParamMismatch
-			}
-		default:
-			return m1, errParamMismatch
+		m1, err = c.readTransformAttr(m1, strings.ToLower(strings.TrimSpace(d[0])))
+		if err != nil {
+			return m1, err
 		}
 	}
 	return m1, nil
+}
+
+func (c *IconCursor) readStyleAttr(curStyle *PathStyle, k, v string) error {
+
+	switch k {
+	case "fill":
+		gradient, err := c.ReadGradURL(v)
+		if err != nil {
+			return err
+		}
+		if gradient != nil {
+			curStyle.fillerColor = gradient
+			break
+		}
+		curStyle.fillerColor, err = ParseSVGColor(v)
+		return err
+	case "stroke":
+		gradient, err := c.ReadGradURL(v)
+		if gradient != nil {
+			curStyle.linerColor = gradient
+			break
+		}
+		if err != nil {
+			return err
+		}
+		col, errc := ParseSVGColor(v)
+		if errc != nil {
+			return errc
+		}
+		if col != nil {
+			curStyle.linerColor = col.(color.NRGBA)
+		} else {
+			curStyle.linerColor = nil
+		}
+	case "stroke-linegap":
+		switch v {
+		case "flat":
+			curStyle.LineGap = rasterx.FlatGap
+		case "round":
+			curStyle.LineGap = rasterx.RoundGap
+		case "cubic":
+			curStyle.LineGap = rasterx.CubicGap
+		case "quadratic":
+			curStyle.LineGap = rasterx.QuadraticGap
+		}
+	case "stroke-leadlinecap":
+		switch v {
+		case "butt":
+			curStyle.LeadLineCap = rasterx.ButtCap
+		case "round":
+			curStyle.LeadLineCap = rasterx.RoundCap
+		case "square":
+			curStyle.LeadLineCap = rasterx.SquareCap
+		case "cubic":
+			curStyle.LeadLineCap = rasterx.CubicCap
+		case "quadratic":
+			curStyle.LeadLineCap = rasterx.QuadraticCap
+		}
+	case "stroke-linecap":
+		switch v {
+		case "butt":
+			curStyle.LineCap = rasterx.ButtCap
+		case "round":
+			curStyle.LineCap = rasterx.RoundCap
+		case "square":
+			curStyle.LineCap = rasterx.SquareCap
+		case "cubic":
+			curStyle.LineCap = rasterx.CubicCap
+		case "quadratic":
+			curStyle.LineCap = rasterx.QuadraticCap
+		}
+	case "stroke-linejoin":
+		switch v {
+		case "miter":
+			curStyle.LineJoin = rasterx.Miter
+		case "miter-clip":
+			curStyle.LineJoin = rasterx.MiterClip
+		case "arc-clip":
+			curStyle.LineJoin = rasterx.ArcClip
+		case "round":
+			curStyle.LineJoin = rasterx.Round
+		case "arc":
+			curStyle.LineJoin = rasterx.Arc
+		case "bevel":
+			curStyle.LineJoin = rasterx.Bevel
+		}
+	case "stroke-miterlimit":
+		mLimit, err := strconv.ParseFloat(v, 64)
+		if err != nil {
+			return err
+		}
+		curStyle.MiterLimit = mLimit
+	case "stroke-width":
+		v = strings.TrimSuffix(v, "px")
+		width, err := strconv.ParseFloat(v, 64)
+		if err != nil {
+			return err
+		}
+		curStyle.LineWidth = width
+	case "stroke-dashoffset":
+		dashOffset, err := strconv.ParseFloat(v, 64)
+		if err != nil {
+			return err
+		}
+		curStyle.DashOffset = dashOffset
+	case "stroke-dasharray":
+		if v != "none" {
+			dashes := strings.Split(v, ",")
+			dList := make([]float64, len(dashes))
+			for i, dstr := range dashes {
+				d, err := strconv.ParseFloat(strings.TrimSpace(dstr), 64)
+				if err != nil {
+					return err
+				}
+				dList[i] = d
+			}
+			curStyle.Dash = dList
+			break
+		}
+	case "opacity", "stroke-opacity", "fill-opacity":
+		op, err := strconv.ParseFloat(v, 64)
+		if err != nil {
+			return err
+		}
+		if k != "stroke-opacity" {
+			curStyle.FillOpacity *= op
+		}
+		if k != "fill-opacity" {
+			curStyle.LineOpacity *= op
+		}
+	case "transform":
+		m, err := c.parseTransform(v)
+		if err != nil {
+			return err
+		}
+		curStyle.mAdder.M = m
+	}
+	return nil
 }
 
 // PushStyle parses the style element, and push it on the style stack. Only color and opacity are supported
@@ -346,140 +492,9 @@ func (c *IconCursor) PushStyle(se xml.StartElement) error {
 			k := strings.ToLower(kv[0])
 			k = strings.TrimSpace(k)
 			v := strings.TrimSpace(kv[1])
-			switch k {
-			case "fill":
-				gradient, err := c.ReadGradURL(v)
-				if err != nil {
-					return err
-				}
-				if gradient != nil {
-					curStyle.fillerColor = gradient
-					break
-				}
-				curStyle.fillerColor, err = ParseSVGColor(v)
-				if err != nil {
-					return err
-				}
-			case "stroke":
-				gradient, err := c.ReadGradURL(v)
-				if err != nil {
-					return err
-				}
-				if gradient != nil {
-					curStyle.linerColor = gradient
-					break
-				}
-				col, errc := ParseSVGColor(v)
-				if errc != nil {
-					return errc
-				}
-				if col != nil {
-					curStyle.linerColor = col.(color.NRGBA)
-				} else {
-					curStyle.linerColor = nil
-				}
-			case "stroke-linegap":
-				switch v {
-				case "flat":
-					curStyle.LineGap = rasterx.FlatGap
-				case "round":
-					curStyle.LineGap = rasterx.RoundGap
-				case "cubic":
-					curStyle.LineGap = rasterx.CubicGap
-				case "quadratic":
-					curStyle.LineGap = rasterx.QuadraticGap
-				}
-			case "stroke-leadlinecap":
-				switch v {
-				case "butt":
-					curStyle.LeadLineCap = rasterx.ButtCap
-				case "round":
-					curStyle.LeadLineCap = rasterx.RoundCap
-				case "square":
-					curStyle.LeadLineCap = rasterx.SquareCap
-				case "cubic":
-					curStyle.LeadLineCap = rasterx.CubicCap
-				case "quadratic":
-					curStyle.LeadLineCap = rasterx.QuadraticCap
-				}
-			case "stroke-linecap":
-				switch v {
-				case "butt":
-					curStyle.LineCap = rasterx.ButtCap
-				case "round":
-					curStyle.LineCap = rasterx.RoundCap
-				case "square":
-					curStyle.LineCap = rasterx.SquareCap
-				case "cubic":
-					curStyle.LineCap = rasterx.CubicCap
-				case "quadratic":
-					curStyle.LineCap = rasterx.QuadraticCap
-				}
-			case "stroke-linejoin":
-				switch v {
-				case "miter":
-					curStyle.LineJoin = rasterx.Miter
-				case "miter-clip":
-					curStyle.LineJoin = rasterx.MiterClip
-				case "arc-clip":
-					curStyle.LineJoin = rasterx.ArcClip
-				case "round":
-					curStyle.LineJoin = rasterx.Round
-				case "arc":
-					curStyle.LineJoin = rasterx.Arc
-				case "bevel":
-					curStyle.LineJoin = rasterx.Bevel
-				}
-			case "stroke-miterlimit":
-				mLimit, err := strconv.ParseFloat(v, 64)
-				if err != nil {
-					return err
-				}
-				curStyle.MiterLimit = mLimit
-			case "stroke-width":
-				v = strings.TrimSuffix(v, "px")
-				width, err := strconv.ParseFloat(v, 64)
-				if err != nil {
-					return err
-				}
-				curStyle.LineWidth = width
-			case "stroke-dashoffset":
-				dashOffset, err := strconv.ParseFloat(v, 64)
-				if err != nil {
-					return err
-				}
-				curStyle.DashOffset = dashOffset
-			case "stroke-dasharray":
-				if v != "none" {
-					dashes := strings.Split(v, ",")
-					dList := make([]float64, len(dashes))
-					for i, dstr := range dashes {
-						d, err := strconv.ParseFloat(strings.TrimSpace(dstr), 64)
-						if err != nil {
-							return err
-						}
-						dList[i] = d
-					}
-					curStyle.Dash = dList
-					break
-				}
-			case "opacity", "stroke-opacity", "fill-opacity":
-				op, err := strconv.ParseFloat(v, 64)
-				if err != nil {
-					return err
-				}
-				if k != "stroke-opacity" {
-					curStyle.FillOpacity *= op
-				}
-				if k != "fill-opacity" {
-					curStyle.LineOpacity *= op
-				}
-			case "transform":
-				m, err := c.parseTransform(v)
-				if err != nil {
-					return err
-				}
-				curStyle.mAdder.M = m
+			err := c.readStyleAttr(&curStyle, k, v)
+			if err != nil {
+				return err
 			}
 		}
 	}
@@ -495,6 +510,266 @@ func trimSuffixes(a string) (b string) {
 	b = a
 	for _, v := range unitSuffixes {
 		b = strings.TrimSuffix(b, v)
+	}
+	return
+}
+
+func (c *IconCursor) readStartElement(se xml.StartElement) (err error) {
+	icon := c.icon
+	switch se.Name.Local {
+	case "svg":
+		icon.ViewBox.X = 0
+		icon.ViewBox.Y = 0
+		icon.ViewBox.W = 0
+		icon.ViewBox.H = 0
+		var width, height float64
+		for _, attr := range se.Attr {
+			switch attr.Name.Local {
+			case "viewBox":
+				err = c.GetPoints(attr.Value)
+				if len(c.points) != 4 {
+					return errParamMismatch
+				}
+				icon.ViewBox.X = c.points[0]
+				icon.ViewBox.Y = c.points[1]
+				icon.ViewBox.W = c.points[2]
+				icon.ViewBox.H = c.points[3]
+			case "width":
+				wn := trimSuffixes(attr.Value)
+				width, err = strconv.ParseFloat(wn, 64)
+			case "height":
+				hn := trimSuffixes(attr.Value)
+				height, err = strconv.ParseFloat(hn, 64)
+			}
+			if err != nil {
+				return
+			}
+		}
+		if icon.ViewBox.W == 0 {
+			icon.ViewBox.W = width
+		}
+		if icon.ViewBox.H == 0 {
+			icon.ViewBox.H = height
+		}
+	case "g": // G does nothing but push the style
+	case "rect":
+		var x, y, w, h, rx, ry float64
+		for _, attr := range se.Attr {
+			switch attr.Name.Local {
+			case "x":
+				x, err = strconv.ParseFloat(attr.Value, 64)
+			case "y":
+				y, err = strconv.ParseFloat(attr.Value, 64)
+			case "width":
+				w, err = strconv.ParseFloat(attr.Value, 64)
+			case "height":
+				h, err = strconv.ParseFloat(attr.Value, 64)
+			case "rx":
+				rx, err = strconv.ParseFloat(attr.Value, 64)
+			case "ry":
+				ry, err = strconv.ParseFloat(attr.Value, 64)
+			}
+			if err != nil {
+				return
+			}
+		}
+		if w == 0 || h == 0 {
+			break
+		}
+		rasterx.AddRoundRect(x, y, w+x, h+y, rx, ry, 0, rasterx.RoundGap, &c.Path)
+	case "circle", "ellipse":
+		var cx, cy, rx, ry float64
+		for _, attr := range se.Attr {
+			switch attr.Name.Local {
+			case "cx":
+				cx, err = strconv.ParseFloat(attr.Value, 64)
+			case "cy":
+				cy, err = strconv.ParseFloat(attr.Value, 64)
+			case "r":
+				rx, err = strconv.ParseFloat(attr.Value, 64)
+				ry = rx
+			case "rx":
+				rx, err = strconv.ParseFloat(attr.Value, 64)
+			case "ry":
+				ry, err = strconv.ParseFloat(attr.Value, 64)
+			}
+			if err != nil {
+				return
+			}
+		}
+		if rx == 0 || ry == 0 { // not drawn, but not an error
+			break
+		}
+		c.EllipseAt(cx, cy, rx, ry)
+	case "line":
+		var x1, x2, y1, y2 float64
+		for _, attr := range se.Attr {
+			switch attr.Name.Local {
+			case "x1":
+				x1, err = strconv.ParseFloat(attr.Value, 64)
+			case "x2":
+				x2, err = strconv.ParseFloat(attr.Value, 64)
+			case "y1":
+				y1, err = strconv.ParseFloat(attr.Value, 64)
+			case "y2":
+				y2, err = strconv.ParseFloat(attr.Value, 64)
+			}
+			if err != nil {
+				return
+			}
+		}
+		c.Path.Start(fixed.Point26_6{
+			X: fixed.Int26_6(x1 * 64),
+			Y: fixed.Int26_6(y1 * 64)})
+		c.Path.Line(fixed.Point26_6{
+			X: fixed.Int26_6(x2 * 64),
+			Y: fixed.Int26_6(y2 * 64)})
+	case "polygon", "polyline":
+		for _, attr := range se.Attr {
+			switch attr.Name.Local {
+			case "points":
+				err = c.GetPoints(attr.Value)
+				if len(c.points)%2 != 0 {
+					return errors.New("polygon has odd number of points")
+				}
+			}
+			if err != nil {
+				return
+			}
+		}
+		if len(c.points) > 4 {
+			c.Path.Start(fixed.Point26_6{
+				X: fixed.Int26_6(c.points[0] * 64),
+				Y: fixed.Int26_6(c.points[1] * 64)})
+			for i := 2; i < len(c.points)-1; i += 2 {
+				c.Path.Line(fixed.Point26_6{
+					X: fixed.Int26_6(c.points[i] * 64),
+					Y: fixed.Int26_6(c.points[i+1] * 64)})
+			}
+			if se.Name.Local == "polygon" { // SVG spec sez polylines dont have close
+				c.Path.Stop(true)
+			}
+		}
+	case "path":
+		for _, attr := range se.Attr {
+			switch attr.Name.Local {
+			case "d":
+				err = c.CompilePath(attr.Value)
+			}
+			if err != nil {
+				return err
+			}
+		}
+	case "desc":
+		c.inDescText = true
+		icon.Descriptions = append(icon.Descriptions, "")
+	case "title":
+		c.inTitleText = true
+		icon.Titles = append(icon.Titles, "")
+	case "def":
+		c.inDef = true
+	case "linearGradient":
+		c.inGrad = true
+		c.grad = &rasterx.Gradient{Points: [5]float64{0, 0, 1, 0, 0},
+			IsRadial: false, Bounds: icon.ViewBox, Matrix: rasterx.Identity}
+		for _, attr := range se.Attr {
+			switch attr.Name.Local {
+			case "id":
+				id := attr.Value
+				if len(id) >= 0 {
+					icon.Ids[id] = c.grad
+				} else {
+					return errZeroLengthID
+				}
+			case "x1":
+				c.grad.Points[0], err = readFraction(attr.Value)
+			case "y1":
+				c.grad.Points[1], err = readFraction(attr.Value)
+			case "x2":
+				c.grad.Points[2], err = readFraction(attr.Value)
+			case "y2":
+				c.grad.Points[3], err = readFraction(attr.Value)
+			default:
+				err = c.ReadGradAttr(attr)
+			}
+			if err != nil {
+				return err
+			}
+		}
+	case "radialGradient":
+		c.inGrad = true
+		c.grad = &rasterx.Gradient{Points: [5]float64{0.5, 0.5, 0.5, 0.5, 0.5},
+			IsRadial: true, Bounds: icon.ViewBox, Matrix: rasterx.Identity}
+		var setFx, setFy bool
+		for _, attr := range se.Attr {
+			switch attr.Name.Local {
+			case "id":
+				id := attr.Value
+				if len(id) >= 0 {
+					icon.Ids[id] = c.grad
+				} else {
+					return errZeroLengthID
+				}
+			case "r":
+				c.grad.Points[4], err = readFraction(attr.Value)
+			case "cx":
+				c.grad.Points[0], err = readFraction(attr.Value)
+			case "cy":
+				c.grad.Points[1], err = readFraction(attr.Value)
+			case "fx":
+				setFx = true
+				c.grad.Points[2], err = readFraction(attr.Value)
+			case "fy":
+				setFy = true
+				c.grad.Points[3], err = readFraction(attr.Value)
+			default:
+				err = c.ReadGradAttr(attr)
+			}
+			if err != nil {
+				return err
+			}
+		}
+		if setFx == false { // set fx to cx by default
+			c.grad.Points[2] = c.grad.Points[0]
+		}
+		if setFy == false { // set fy to cy by default
+			c.grad.Points[3] = c.grad.Points[1]
+		}
+	case "stop":
+		if c.inGrad {
+			stop := rasterx.GradStop{Opacity: 1.0}
+			for _, attr := range se.Attr {
+				switch attr.Name.Local {
+				case "offset":
+					stop.Offset, err = readFraction(attr.Value)
+				case "stop-color":
+					//todo: add current color inherit
+					stop.StopColor, err = ParseSVGColor(attr.Value)
+				case "stop-opacity":
+					stop.Opacity, err = strconv.ParseFloat(attr.Value, 64)
+				}
+				if err != nil {
+					return err
+				}
+			}
+			c.grad.Stops = append(c.grad.Stops, stop)
+		}
+
+	default:
+		errStr := "Cannot process svg element " + se.Name.Local
+		if c.ErrorMode == StrictErrorMode {
+			return errors.New(errStr)
+		} else if c.ErrorMode == WarnErrorMode {
+			log.Println(errStr)
+		}
+	}
+	if len(c.Path) > 0 {
+		//The cursor parsed a path from the xml element
+		pathCopy := make(rasterx.Path, len(c.Path))
+		copy(pathCopy, c.Path)
+		icon.SVGPaths = append(icon.SVGPaths,
+			SvgPath{c.StyleStack[len(c.StyleStack)-1], pathCopy})
+		c.Path = c.Path[:0]
 	}
 	return
 }
@@ -536,262 +811,7 @@ func ReadIcon(iconFile string, errMode ...ErrorMode) (*SvgIcon, error) {
 			if err != nil {
 				return icon, err
 			}
-			//fmt.Println("com", se.Name.Local)
-			switch se.Name.Local {
-			case "svg":
-				icon.ViewBox.X = 0
-				icon.ViewBox.Y = 0
-				icon.ViewBox.W = 0
-				icon.ViewBox.H = 0
-				var width, height float64
-				for _, attr := range se.Attr {
-					switch attr.Name.Local {
-					case "viewBox":
-						err = cursor.GetPoints(attr.Value)
-						if len(cursor.points) != 4 {
-							return icon, errParamMismatch
-						}
-						icon.ViewBox.X = cursor.points[0]
-						icon.ViewBox.Y = cursor.points[1]
-						icon.ViewBox.W = cursor.points[2]
-						icon.ViewBox.H = cursor.points[3]
-					case "width":
-						wn := trimSuffixes(attr.Value)
-						width, err = strconv.ParseFloat(wn, 64)
-					case "height":
-						hn := trimSuffixes(attr.Value)
-						height, err = strconv.ParseFloat(hn, 64)
-					}
-					if err != nil {
-						return icon, err
-					}
-				}
-				if icon.ViewBox.W == 0 {
-					icon.ViewBox.W = width
-				}
-				if icon.ViewBox.H == 0 {
-					icon.ViewBox.H = height
-				}
-			case "g": // G does nothing but push the style
-			case "rect":
-				var x, y, w, h, rx, ry float64
-				for _, attr := range se.Attr {
-					switch attr.Name.Local {
-					case "x":
-						x, err = strconv.ParseFloat(attr.Value, 64)
-					case "y":
-						y, err = strconv.ParseFloat(attr.Value, 64)
-					case "width":
-						w, err = strconv.ParseFloat(attr.Value, 64)
-					case "height":
-						h, err = strconv.ParseFloat(attr.Value, 64)
-					case "rx":
-						rx, err = strconv.ParseFloat(attr.Value, 64)
-					case "ry":
-						ry, err = strconv.ParseFloat(attr.Value, 64)
-					}
-					if err != nil {
-						return icon, err
-					}
-				}
-				if w == 0 || h == 0 {
-					break
-				}
-				rasterx.AddRoundRect(x, y, w+x, h+y, rx, ry, 0, rasterx.RoundGap, &cursor.Path)
-			case "circle", "ellipse":
-				var cx, cy, rx, ry float64
-				for _, attr := range se.Attr {
-					switch attr.Name.Local {
-					case "cx":
-						cx, err = strconv.ParseFloat(attr.Value, 64)
-					case "cy":
-						cy, err = strconv.ParseFloat(attr.Value, 64)
-					case "r":
-						rx, err = strconv.ParseFloat(attr.Value, 64)
-						ry = rx
-					case "rx":
-						rx, err = strconv.ParseFloat(attr.Value, 64)
-					case "ry":
-						ry, err = strconv.ParseFloat(attr.Value, 64)
-					}
-					if err != nil {
-						return icon, err
-					}
-				}
-				if rx == 0 || ry == 0 { // not drawn, but not an error
-					break
-				}
-				cursor.EllipseAt(cx, cy, rx, ry)
-			case "line":
-				var x1, x2, y1, y2 float64
-				for _, attr := range se.Attr {
-					switch attr.Name.Local {
-					case "x1":
-						x1, err = strconv.ParseFloat(attr.Value, 64)
-					case "x2":
-						x2, err = strconv.ParseFloat(attr.Value, 64)
-					case "y1":
-						y1, err = strconv.ParseFloat(attr.Value, 64)
-					case "y2":
-						y2, err = strconv.ParseFloat(attr.Value, 64)
-					}
-					if err != nil {
-						return icon, err
-					}
-				}
-				cursor.Path.Start(fixed.Point26_6{
-					X: fixed.Int26_6(x1 * 64),
-					Y: fixed.Int26_6(y1 * 64)})
-				cursor.Path.Line(fixed.Point26_6{
-					X: fixed.Int26_6(x2 * 64),
-					Y: fixed.Int26_6(y2 * 64)})
-			case "polygon", "polyline":
-				for _, attr := range se.Attr {
-					switch attr.Name.Local {
-					case "points":
-						err = cursor.GetPoints(attr.Value)
-						if len(cursor.points)%2 != 0 {
-							return icon, errors.New("polygon has odd number of points")
-						}
-					}
-					if err != nil {
-						return icon, err
-					}
-				}
-				if len(cursor.points) > 4 {
-					cursor.Path.Start(fixed.Point26_6{
-						X: fixed.Int26_6(cursor.points[0] * 64),
-						Y: fixed.Int26_6(cursor.points[1] * 64)})
-					for i := 2; i < len(cursor.points)-1; i += 2 {
-						cursor.Path.Line(fixed.Point26_6{
-							X: fixed.Int26_6(cursor.points[i] * 64),
-							Y: fixed.Int26_6(cursor.points[i+1] * 64)})
-					}
-					if se.Name.Local == "polygon" { // SVG spec sez polylines dont have close
-						cursor.Path.Stop(true)
-					}
-				}
-			case "path":
-				for _, attr := range se.Attr {
-					switch attr.Name.Local {
-					case "d":
-						err = cursor.CompilePath(attr.Value)
-					}
-					if err != nil {
-						return icon, err
-					}
-				}
-			case "desc":
-				cursor.inDescText = true
-				icon.Descriptions = append(icon.Descriptions, "")
-			case "title":
-				cursor.inTitleText = true
-				icon.Titles = append(icon.Titles, "")
-			case "def":
-				cursor.inDef = true
-			case "linearGradient":
-				cursor.inGrad = true
-				cursor.grad = &rasterx.Gradient{Points: [5]float64{0, 0, 1, 0, 0},
-					IsRadial: false, Bounds: icon.ViewBox, Matrix: rasterx.Identity}
-				for _, attr := range se.Attr {
-					switch attr.Name.Local {
-					case "id":
-						id := attr.Value
-						if len(id) >= 0 {
-							icon.Ids[id] = cursor.grad
-						} else {
-							return icon, errZeroLengthID
-						}
-					case "x1":
-						cursor.grad.Points[0], err = readFraction(attr.Value)
-					case "y1":
-						cursor.grad.Points[1], err = readFraction(attr.Value)
-					case "x2":
-						cursor.grad.Points[2], err = readFraction(attr.Value)
-					case "y2":
-						cursor.grad.Points[3], err = readFraction(attr.Value)
-					default:
-						err = cursor.ReadGradAttr(attr)
-					}
-					if err != nil {
-						return icon, err
-					}
-				}
-			case "radialGradient":
-				cursor.inGrad = true
-				cursor.grad = &rasterx.Gradient{Points: [5]float64{0.5, 0.5, 0.5, 0.5, 0.5},
-					IsRadial: true, Bounds: icon.ViewBox, Matrix: rasterx.Identity}
-				var setFx, setFy bool
-				for _, attr := range se.Attr {
-					switch attr.Name.Local {
-					case "id":
-						id := attr.Value
-						if len(id) >= 0 {
-							icon.Ids[id] = cursor.grad
-						} else {
-							return icon, errZeroLengthID
-						}
-					case "r":
-						cursor.grad.Points[4], err = readFraction(attr.Value)
-					case "cx":
-						cursor.grad.Points[0], err = readFraction(attr.Value)
-					case "cy":
-						cursor.grad.Points[1], err = readFraction(attr.Value)
-					case "fx":
-						setFx = true
-						cursor.grad.Points[2], err = readFraction(attr.Value)
-					case "fy":
-						setFy = true
-						cursor.grad.Points[3], err = readFraction(attr.Value)
-					default:
-						err = cursor.ReadGradAttr(attr)
-					}
-					if err != nil {
-						return icon, err
-					}
-				}
-				if setFx == false { // set fx to cx by default
-					cursor.grad.Points[2] = cursor.grad.Points[0]
-				}
-				if setFy == false { // set fy to cy by default
-					cursor.grad.Points[3] = cursor.grad.Points[1]
-				}
-			case "stop":
-				if cursor.inGrad {
-					stop := rasterx.GradStop{Opacity: 1.0}
-					for _, attr := range se.Attr {
-						switch attr.Name.Local {
-						case "offset":
-							stop.Offset, err = readFraction(attr.Value)
-						case "stop-color":
-							//todo: add current color inherit
-							stop.StopColor, err = ParseSVGColor(attr.Value)
-						case "stop-opacity":
-							stop.Opacity, err = strconv.ParseFloat(attr.Value, 64)
-						}
-						if err != nil {
-							return icon, err
-						}
-					}
-					cursor.grad.Stops = append(cursor.grad.Stops, stop)
-				}
-
-			default:
-				errStr := "Cannot process svg element " + se.Name.Local
-				if cursor.ErrorMode == StrictErrorMode {
-					err = errors.New(errStr)
-				} else if cursor.ErrorMode == WarnErrorMode {
-					log.Println(errStr)
-				}
-			}
-			if len(cursor.Path) > 0 {
-				//The cursor parsed a path from the xml element
-				pathCopy := make(rasterx.Path, len(cursor.Path))
-				copy(pathCopy, cursor.Path)
-				icon.SVGPaths = append(icon.SVGPaths,
-					SvgPath{cursor.StyleStack[len(cursor.StyleStack)-1], pathCopy})
-				cursor.Path = cursor.Path[:0]
-			}
+			err = cursor.readStartElement(se)
 		case xml.EndElement:
 			cursor.StyleStack = cursor.StyleStack[:len(cursor.StyleStack)-1]
 			switch se.Name.Local {
@@ -872,5 +892,5 @@ func (c *IconCursor) ReadGradAttr(attr xml.Attr) (err error) {
 			c.grad.Spread = rasterx.RepeatSpread
 		}
 	}
-	return nil
+	return
 }

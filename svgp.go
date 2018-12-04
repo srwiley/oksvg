@@ -140,6 +140,24 @@ func (c *PathCursor) GetPoints(dataPoints string) error {
 	return nil
 }
 
+func (c *PathCursor) reflectControlQuad() {
+	switch c.lastKey {
+	case 'q', 'Q', 'T', 't':
+		c.cntlPtX, c.cntlPtY = reflect(c.placeX, c.placeY, c.cntlPtX, c.cntlPtY)
+	default:
+		c.cntlPtX, c.cntlPtY = c.placeX, c.placeY
+	}
+}
+
+func (c *PathCursor) reflectControlCube() {
+	switch c.lastKey {
+	case 'c', 'C', 's', 'S':
+		c.cntlPtX, c.cntlPtY = reflect(c.placeX, c.placeY, c.cntlPtX, c.cntlPtY)
+	default:
+		c.cntlPtX, c.cntlPtY = c.placeX, c.placeY
+	}
+}
+
 // addSeg decodes an SVG seqment string into equivalent raster path commands saved
 // in the cursor's Path
 func (c *PathCursor) addSeg(segString string) error {
@@ -245,12 +263,7 @@ func (c *PathCursor) addSeg(segString string) error {
 			return errParamMismatch
 		}
 		for i := 0; i < l-1; i += 2 {
-			switch c.lastKey {
-			case 'q', 'Q', 'T', 't':
-				c.cntlPtX, c.cntlPtY = reflect(c.placeX, c.placeY, c.cntlPtX, c.cntlPtY)
-			default:
-				c.cntlPtX, c.cntlPtY = c.placeX, c.placeY
-			}
+			c.reflectControlQuad()
 			c.Path.QuadBezier(
 				fixed.Point26_6{
 					X: fixed.Int26_6(c.cntlPtX * 64),
@@ -292,12 +305,7 @@ func (c *PathCursor) addSeg(segString string) error {
 			return errParamMismatch
 		}
 		for i := 0; i < l-3; i += 4 {
-			switch c.lastKey {
-			case 'c', 'C', 's', 'S':
-				c.cntlPtX, c.cntlPtY = reflect(c.placeX, c.placeY, c.cntlPtX, c.cntlPtY)
-			default:
-				c.cntlPtX, c.cntlPtY = c.placeX, c.placeY
-			}
+			c.reflectControlCube()
 			c.Path.CubeBezier(fixed.Point26_6{
 				X: fixed.Int26_6(c.cntlPtX * 64), Y: fixed.Int26_6(c.cntlPtY * 64)},
 				fixed.Point26_6{
