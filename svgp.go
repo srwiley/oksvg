@@ -341,7 +341,8 @@ func (c *PathCursor) addSeg(segString string) error {
 	return nil
 }
 
-//EllipseAt adds an elipse centered at cx, cy of radius rx and ry
+//EllipseAt adds a path of an elipse centered at cx, cy of radius rx and ry
+// to the PathCursor
 func (c *PathCursor) EllipseAt(cx, cy, rx, ry float64) {
 	c.placeX, c.placeY = cx+rx, cy
 	c.points = c.points[0:0]
@@ -353,7 +354,7 @@ func (c *PathCursor) EllipseAt(cx, cy, rx, ry float64) {
 	c.Path.Stop(true)
 }
 
-//AddArcFromA adds an arc element to the cursor path
+//AddArcFromA adds a path of an arc element to the cursor path to the PathCursor
 func (c *PathCursor) AddArcFromA(points []float64) {
 	cx, cy := rasterx.FindEllipseCenter(&points[0], &points[1], points[2]*math.Pi/180, c.placeX,
 		c.placeY, points[5], points[6], points[4] == 0, points[3] == 0)
