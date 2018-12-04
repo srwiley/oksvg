@@ -334,7 +334,6 @@ func (c *IconCursor) parseTransform(v string) (rasterx.Matrix2D, error) {
 }
 
 func (c *IconCursor) readStyleAttr(curStyle *PathStyle, k, v string) error {
-
 	switch k {
 	case "fill":
 		gradient, err := c.ReadGradURL(v)
@@ -812,7 +811,11 @@ func ReadIcon(iconFile string, errMode ...ErrorMode) (*SvgIcon, error) {
 				return icon, err
 			}
 			err = cursor.readStartElement(se)
+			if err != nil {
+				return icon, err
+			}
 		case xml.EndElement:
+			// pop style
 			cursor.StyleStack = cursor.StyleStack[:len(cursor.StyleStack)-1]
 			switch se.Name.Local {
 			case "title":
