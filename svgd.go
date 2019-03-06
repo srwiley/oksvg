@@ -514,247 +514,8 @@ func trimSuffixes(a string) (b string) {
 }
 
 func (c *IconCursor) readStartElement(se xml.StartElement) (err error) {
-	icon := c.icon
-	switch se.Name.Local {
-	case "svg":
-		icon.ViewBox.X = 0
-		icon.ViewBox.Y = 0
-		icon.ViewBox.W = 0
-		icon.ViewBox.H = 0
-		var width, height float64
-		for _, attr := range se.Attr {
-			switch attr.Name.Local {
-			case "viewBox":
-				err = c.GetPoints(attr.Value)
-				if len(c.points) != 4 {
-					return errParamMismatch
-				}
-				icon.ViewBox.X = c.points[0]
-				icon.ViewBox.Y = c.points[1]
-				icon.ViewBox.W = c.points[2]
-				icon.ViewBox.H = c.points[3]
-			case "width":
-				wn := trimSuffixes(attr.Value)
-				width, err = strconv.ParseFloat(wn, 64)
-			case "height":
-				hn := trimSuffixes(attr.Value)
-				height, err = strconv.ParseFloat(hn, 64)
-			}
-			if err != nil {
-				return
-			}
-		}
-		if icon.ViewBox.W == 0 {
-			icon.ViewBox.W = width
-		}
-		if icon.ViewBox.H == 0 {
-			icon.ViewBox.H = height
-		}
-	case "g": // G does nothing but push the style
-	case "rect":
-		var x, y, w, h, rx, ry float64
-		for _, attr := range se.Attr {
-			switch attr.Name.Local {
-			case "x":
-				x, err = strconv.ParseFloat(attr.Value, 64)
-			case "y":
-				y, err = strconv.ParseFloat(attr.Value, 64)
-			case "width":
-				w, err = strconv.ParseFloat(attr.Value, 64)
-			case "height":
-				h, err = strconv.ParseFloat(attr.Value, 64)
-			case "rx":
-				rx, err = strconv.ParseFloat(attr.Value, 64)
-			case "ry":
-				ry, err = strconv.ParseFloat(attr.Value, 64)
-			}
-			if err != nil {
-				return
-			}
-		}
-		if w == 0 || h == 0 {
-			break
-		}
-		rasterx.AddRoundRect(x, y, w+x, h+y, rx, ry, 0, rasterx.RoundGap, &c.Path)
-	case "circle", "ellipse":
-		var cx, cy, rx, ry float64
-		for _, attr := range se.Attr {
-			switch attr.Name.Local {
-			case "cx":
-				cx, err = strconv.ParseFloat(attr.Value, 64)
-			case "cy":
-				cy, err = strconv.ParseFloat(attr.Value, 64)
-			case "r":
-				rx, err = strconv.ParseFloat(attr.Value, 64)
-				ry = rx
-			case "rx":
-				rx, err = strconv.ParseFloat(attr.Value, 64)
-			case "ry":
-				ry, err = strconv.ParseFloat(attr.Value, 64)
-			}
-			if err != nil {
-				return
-			}
-		}
-		if rx == 0 || ry == 0 { // not drawn, but not an error
-			break
-		}
-		c.EllipseAt(cx, cy, rx, ry)
-	case "line":
-		var x1, x2, y1, y2 float64
-		for _, attr := range se.Attr {
-			switch attr.Name.Local {
-			case "x1":
-				x1, err = strconv.ParseFloat(attr.Value, 64)
-			case "x2":
-				x2, err = strconv.ParseFloat(attr.Value, 64)
-			case "y1":
-				y1, err = strconv.ParseFloat(attr.Value, 64)
-			case "y2":
-				y2, err = strconv.ParseFloat(attr.Value, 64)
-			}
-			if err != nil {
-				return
-			}
-		}
-		c.Path.Start(fixed.Point26_6{
-			X: fixed.Int26_6(x1 * 64),
-			Y: fixed.Int26_6(y1 * 64)})
-		c.Path.Line(fixed.Point26_6{
-			X: fixed.Int26_6(x2 * 64),
-			Y: fixed.Int26_6(y2 * 64)})
-	case "polygon", "polyline":
-		for _, attr := range se.Attr {
-			switch attr.Name.Local {
-			case "points":
-				err = c.GetPoints(attr.Value)
-				if len(c.points)%2 != 0 {
-					return errors.New("polygon has odd number of points")
-				}
-			}
-			if err != nil {
-				return
-			}
-		}
-		if len(c.points) > 4 {
-			c.Path.Start(fixed.Point26_6{
-				X: fixed.Int26_6(c.points[0] * 64),
-				Y: fixed.Int26_6(c.points[1] * 64)})
-			for i := 2; i < len(c.points)-1; i += 2 {
-				c.Path.Line(fixed.Point26_6{
-					X: fixed.Int26_6(c.points[i] * 64),
-					Y: fixed.Int26_6(c.points[i+1] * 64)})
-			}
-			if se.Name.Local == "polygon" { // SVG spec sez polylines dont have close
-				c.Path.Stop(true)
-			}
-		}
-	case "path":
-		for _, attr := range se.Attr {
-			switch attr.Name.Local {
-			case "d":
-				err = c.CompilePath(attr.Value)
-			}
-			if err != nil {
-				return err
-			}
-		}
-	case "desc":
-		c.inDescText = true
-		icon.Descriptions = append(icon.Descriptions, "")
-	case "title":
-		c.inTitleText = true
-		icon.Titles = append(icon.Titles, "")
-	case "def":
-		c.inDef = true
-	case "linearGradient":
-		c.inGrad = true
-		c.grad = &rasterx.Gradient{Points: [5]float64{0, 0, 1, 0, 0},
-			IsRadial: false, Bounds: icon.ViewBox, Matrix: rasterx.Identity}
-		for _, attr := range se.Attr {
-			switch attr.Name.Local {
-			case "id":
-				id := attr.Value
-				if len(id) >= 0 {
-					icon.Ids[id] = c.grad
-				} else {
-					return errZeroLengthID
-				}
-			case "x1":
-				c.grad.Points[0], err = readFraction(attr.Value)
-			case "y1":
-				c.grad.Points[1], err = readFraction(attr.Value)
-			case "x2":
-				c.grad.Points[2], err = readFraction(attr.Value)
-			case "y2":
-				c.grad.Points[3], err = readFraction(attr.Value)
-			default:
-				err = c.ReadGradAttr(attr)
-			}
-			if err != nil {
-				return err
-			}
-		}
-	case "radialGradient":
-		c.inGrad = true
-		c.grad = &rasterx.Gradient{Points: [5]float64{0.5, 0.5, 0.5, 0.5, 0.5},
-			IsRadial: true, Bounds: icon.ViewBox, Matrix: rasterx.Identity}
-		var setFx, setFy bool
-		for _, attr := range se.Attr {
-			switch attr.Name.Local {
-			case "id":
-				id := attr.Value
-				if len(id) >= 0 {
-					icon.Ids[id] = c.grad
-				} else {
-					return errZeroLengthID
-				}
-			case "r":
-				c.grad.Points[4], err = readFraction(attr.Value)
-			case "cx":
-				c.grad.Points[0], err = readFraction(attr.Value)
-			case "cy":
-				c.grad.Points[1], err = readFraction(attr.Value)
-			case "fx":
-				setFx = true
-				c.grad.Points[2], err = readFraction(attr.Value)
-			case "fy":
-				setFy = true
-				c.grad.Points[3], err = readFraction(attr.Value)
-			default:
-				err = c.ReadGradAttr(attr)
-			}
-			if err != nil {
-				return err
-			}
-		}
-		if setFx == false { // set fx to cx by default
-			c.grad.Points[2] = c.grad.Points[0]
-		}
-		if setFy == false { // set fy to cy by default
-			c.grad.Points[3] = c.grad.Points[1]
-		}
-	case "stop":
-		if c.inGrad {
-			stop := rasterx.GradStop{Opacity: 1.0}
-			for _, attr := range se.Attr {
-				switch attr.Name.Local {
-				case "offset":
-					stop.Offset, err = readFraction(attr.Value)
-				case "stop-color":
-					//todo: add current color inherit
-					stop.StopColor, err = ParseSVGColor(attr.Value)
-				case "stop-opacity":
-					stop.Opacity, err = strconv.ParseFloat(attr.Value, 64)
-				}
-				if err != nil {
-					return err
-				}
-			}
-			c.grad.Stops = append(c.grad.Stops, stop)
-		}
-
-	default:
+	df, ok := drawFuncs[se.Name.Local]
+	if !ok {
 		errStr := "Cannot process svg element " + se.Name.Local
 		if c.ErrorMode == StrictErrorMode {
 			return errors.New(errStr)
@@ -762,11 +523,12 @@ func (c *IconCursor) readStartElement(se xml.StartElement) (err error) {
 			log.Println(errStr)
 		}
 	}
+	err = df(c, se.Attr)
 	if len(c.Path) > 0 {
 		//The cursor parsed a path from the xml element
 		pathCopy := make(rasterx.Path, len(c.Path))
 		copy(pathCopy, c.Path)
-		icon.SVGPaths = append(icon.SVGPaths,
+		c.icon.SVGPaths = append(c.icon.SVGPaths,
 			SvgPath{c.StyleStack[len(c.StyleStack)-1], pathCopy})
 		c.Path = c.Path[:0]
 	}
@@ -906,4 +668,287 @@ func (c *IconCursor) ReadGradAttr(attr xml.Attr) (err error) {
 		}
 	}
 	return
+}
+
+var drawFuncs = make(map[string]func(c *IconCursor, attrs []xml.Attr) error)
+
+func init() {
+	drawFuncs["svg"] = func(c *IconCursor, attrs []xml.Attr) error {
+		c.icon.ViewBox.X = 0
+		c.icon.ViewBox.Y = 0
+		c.icon.ViewBox.W = 0
+		c.icon.ViewBox.H = 0
+		var width, height float64
+		var err error
+		for _, attr := range attrs {
+			switch attr.Name.Local {
+			case "viewBox":
+				err = c.GetPoints(attr.Value)
+				if len(c.points) != 4 {
+					return errParamMismatch
+				}
+				c.icon.ViewBox.X = c.points[0]
+				c.icon.ViewBox.Y = c.points[1]
+				c.icon.ViewBox.W = c.points[2]
+				c.icon.ViewBox.H = c.points[3]
+			case "width":
+				wn := trimSuffixes(attr.Value)
+				width, err = strconv.ParseFloat(wn, 64)
+			case "height":
+				hn := trimSuffixes(attr.Value)
+				height, err = strconv.ParseFloat(hn, 64)
+			}
+			if err != nil {
+				return err
+			}
+		}
+		if c.icon.ViewBox.W == 0 {
+			c.icon.ViewBox.W = width
+		}
+		if c.icon.ViewBox.H == 0 {
+			c.icon.ViewBox.H = height
+		}
+		return nil
+	}
+	drawFuncs["g"] = func(*IconCursor, []xml.Attr) error { return nil } // g does nothing but push the style
+	drawFuncs["rect"] = func(c *IconCursor, attrs []xml.Attr) error {
+		var x, y, w, h, rx, ry float64
+		var err error
+		for _, attr := range attrs {
+			switch attr.Name.Local {
+			case "x":
+				x, err = strconv.ParseFloat(attr.Value, 64)
+			case "y":
+				y, err = strconv.ParseFloat(attr.Value, 64)
+			case "width":
+				w, err = strconv.ParseFloat(attr.Value, 64)
+			case "height":
+				h, err = strconv.ParseFloat(attr.Value, 64)
+			case "rx":
+				rx, err = strconv.ParseFloat(attr.Value, 64)
+			case "ry":
+				ry, err = strconv.ParseFloat(attr.Value, 64)
+			}
+			if err != nil {
+				return err
+			}
+		}
+		if w == 0 || h == 0 {
+			return nil
+		}
+		rasterx.AddRoundRect(x, y, w+x, h+y, rx, ry, 0, rasterx.RoundGap, &c.Path)
+		return nil
+	}
+	drawFuncs["circle"] = func(c *IconCursor, attrs []xml.Attr) error {
+		var cx, cy, rx, ry float64
+		var err error
+		for _, attr := range attrs {
+			switch attr.Name.Local {
+			case "cx":
+				cx, err = strconv.ParseFloat(attr.Value, 64)
+			case "cy":
+				cy, err = strconv.ParseFloat(attr.Value, 64)
+			case "r":
+				rx, err = strconv.ParseFloat(attr.Value, 64)
+				ry = rx
+			case "rx":
+				rx, err = strconv.ParseFloat(attr.Value, 64)
+			case "ry":
+				ry, err = strconv.ParseFloat(attr.Value, 64)
+			}
+			if err != nil {
+				return err
+			}
+		}
+		if rx == 0 || ry == 0 { // not drawn, but not an error
+			return nil
+		}
+		c.EllipseAt(cx, cy, rx, ry)
+		return nil
+	}
+	drawFuncs["ellipse"] = func(c *IconCursor, attrs []xml.Attr) error {
+		return drawFuncs["circle"](c, attrs)
+	}
+	drawFuncs["line"] = func(c *IconCursor, attrs []xml.Attr) error {
+		var x1, x2, y1, y2 float64
+		var err error
+		for _, attr := range attrs {
+			switch attr.Name.Local {
+			case "x1":
+				x1, err = strconv.ParseFloat(attr.Value, 64)
+			case "x2":
+				x2, err = strconv.ParseFloat(attr.Value, 64)
+			case "y1":
+				y1, err = strconv.ParseFloat(attr.Value, 64)
+			case "y2":
+				y2, err = strconv.ParseFloat(attr.Value, 64)
+			}
+			if err != nil {
+				return err
+			}
+		}
+		c.Path.Start(fixed.Point26_6{
+			X: fixed.Int26_6(x1 * 64),
+			Y: fixed.Int26_6(y1 * 64)})
+		c.Path.Line(fixed.Point26_6{
+			X: fixed.Int26_6(x2 * 64),
+			Y: fixed.Int26_6(y2 * 64)})
+		return nil
+	}
+	drawFuncs["polyline"] = func(c *IconCursor, attrs []xml.Attr) error {
+		var err error
+		for _, attr := range attrs {
+			switch attr.Name.Local {
+			case "points":
+				err = c.GetPoints(attr.Value)
+				if len(c.points)%2 != 0 {
+					return errors.New("polygon has odd number of points")
+				}
+			}
+			if err != nil {
+				return err
+			}
+		}
+		if len(c.points) > 4 {
+			c.Path.Start(fixed.Point26_6{
+				X: fixed.Int26_6(c.points[0] * 64),
+				Y: fixed.Int26_6(c.points[1] * 64)})
+			for i := 2; i < len(c.points)-1; i += 2 {
+				c.Path.Line(fixed.Point26_6{
+					X: fixed.Int26_6(c.points[i] * 64),
+					Y: fixed.Int26_6(c.points[i+1] * 64)})
+			}
+		}
+		return nil
+	}
+	drawFuncs["polygon"] = func(c *IconCursor, attrs []xml.Attr) error {
+		err := drawFuncs["polyline"](c, attrs)
+		if len(c.points) > 4 {
+			c.Path.Stop(true)
+		}
+		return err
+	}
+	drawFuncs["path"] = func(c *IconCursor, attrs []xml.Attr) error {
+		var err error
+		for _, attr := range attrs {
+			switch attr.Name.Local {
+			case "d":
+				err = c.CompilePath(attr.Value)
+			}
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	drawFuncs["desc"] = func(c *IconCursor, attrs []xml.Attr) error {
+		c.inDescText = true
+		c.icon.Descriptions = append(c.icon.Descriptions, "")
+		return nil
+	}
+	drawFuncs["title"] = func(c *IconCursor, attrs []xml.Attr) error {
+		c.inTitleText = true
+		c.icon.Titles = append(c.icon.Titles, "")
+		return nil
+	}
+	drawFuncs["def"] = func(c *IconCursor, attrs []xml.Attr) error {
+		c.inDef = true
+		return nil
+	}
+	drawFuncs["linearGradient"] = func(c *IconCursor, attrs []xml.Attr) error {
+		var err error
+		c.inGrad = true
+		c.grad = &rasterx.Gradient{Points: [5]float64{0, 0, 1, 0, 0},
+			IsRadial: false, Bounds: c.icon.ViewBox, Matrix: rasterx.Identity}
+		for _, attr := range attrs {
+			switch attr.Name.Local {
+			case "id":
+				id := attr.Value
+				if len(id) >= 0 {
+					c.icon.Ids[id] = c.grad
+				} else {
+					return errZeroLengthID
+				}
+			case "x1":
+				c.grad.Points[0], err = readFraction(attr.Value)
+			case "y1":
+				c.grad.Points[1], err = readFraction(attr.Value)
+			case "x2":
+				c.grad.Points[2], err = readFraction(attr.Value)
+			case "y2":
+				c.grad.Points[3], err = readFraction(attr.Value)
+			default:
+				err = c.ReadGradAttr(attr)
+			}
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	drawFuncs["radialGradient"] = func(c *IconCursor, attrs []xml.Attr) error {
+		c.inGrad = true
+		c.grad = &rasterx.Gradient{Points: [5]float64{0.5, 0.5, 0.5, 0.5, 0.5},
+			IsRadial: true, Bounds: c.icon.ViewBox, Matrix: rasterx.Identity}
+		var setFx, setFy bool
+		var err error
+		for _, attr := range attrs {
+			switch attr.Name.Local {
+			case "id":
+				id := attr.Value
+				if len(id) >= 0 {
+					c.icon.Ids[id] = c.grad
+				} else {
+					return errZeroLengthID
+				}
+			case "r":
+				c.grad.Points[4], err = readFraction(attr.Value)
+			case "cx":
+				c.grad.Points[0], err = readFraction(attr.Value)
+			case "cy":
+				c.grad.Points[1], err = readFraction(attr.Value)
+			case "fx":
+				setFx = true
+				c.grad.Points[2], err = readFraction(attr.Value)
+			case "fy":
+				setFy = true
+				c.grad.Points[3], err = readFraction(attr.Value)
+			default:
+				err = c.ReadGradAttr(attr)
+			}
+			if err != nil {
+				return err
+			}
+		}
+		if setFx == false { // set fx to cx by default
+			c.grad.Points[2] = c.grad.Points[0]
+		}
+		if setFy == false { // set fy to cy by default
+			c.grad.Points[3] = c.grad.Points[1]
+		}
+		return nil
+	}
+	drawFuncs["stop"] = func(c *IconCursor, attrs []xml.Attr) error {
+		var err error
+		if c.inGrad {
+			stop := rasterx.GradStop{Opacity: 1.0}
+			for _, attr := range attrs {
+				switch attr.Name.Local {
+				case "offset":
+					stop.Offset, err = readFraction(attr.Value)
+				case "stop-color":
+					//todo: add current color inherit
+					stop.StopColor, err = ParseSVGColor(attr.Value)
+				case "stop-opacity":
+					stop.Opacity, err = strconv.ParseFloat(attr.Value, 64)
+				}
+				if err != nil {
+					return err
+				}
+			}
+			c.grad.Stops = append(c.grad.Stops, stop)
+		}
+		return nil
+	}
+
 }
