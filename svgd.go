@@ -63,10 +63,11 @@ type (
 	// IconCursor is used while parsing SVG files
 	IconCursor struct {
 		PathCursor
-		icon                                   *SvgIcon
-		StyleStack                             []PathStyle
-		grad                                   *rasterx.Gradient
-		inTitleText, inDescText, inGrad, inDef bool
+		icon                                    *SvgIcon
+		StyleStack                              []PathStyle
+		grad                                    *rasterx.Gradient
+		inTitleText, inDescText, inGrad, inDefs bool
+		currentDef                              []map[string]string
 	}
 )
 
@@ -89,7 +90,6 @@ func (s *SvgIcon) SetTarget(x, y, w, h float64) {
 	scaleW := w / s.ViewBox.W
 	scaleH := h / s.ViewBox.H
 	s.Transform = rasterx.Identity.Translate(x-s.ViewBox.X, y-s.ViewBox.Y).Scale(scaleW, scaleH)
-
 }
 
 // Draw the compiled SvgPath into the Dasher.
@@ -514,6 +514,20 @@ func trimSuffixes(a string) (b string) {
 }
 
 func (c *IconCursor) readStartElement(se xml.StartElement) (err error) {
+	if c.inDefs {
+		var m = make(map[string]string)
+		m["tag"] = se.Name.Local
+		for _, attr := range se.Attr {
+			m[attr.Name.Local] = attr.Value
+		}
+		_, ok := m["id"]
+		if ok && len(c.currentDef) > 0 {
+			c.icon.Ids[c.currentDef[0]["id"]] = c.currentDef
+			c.currentDef = make([]map[string]string, 0)
+		}
+		c.currentDef = append(c.currentDef, m)
+		return nil
+	}
 	df, ok := drawFuncs[se.Name.Local]
 	if !ok {
 		errStr := "Cannot process svg element " + se.Name.Local
@@ -578,8 +592,12 @@ func ReadIconStream(stream io.Reader, errMode ...ErrorMode) (*SvgIcon, error) {
 				cursor.inTitleText = false
 			case "desc":
 				cursor.inDescText = false
-			case "def":
-				cursor.inDef = false
+			case "defs":
+				if len(cursor.currentDef) > 0 {
+					cursor.icon.Ids[cursor.currentDef[0]["id"]] = cursor.currentDef
+					cursor.currentDef = make([]map[string]string, 0)
+				}
+				cursor.inDefs = false
 			case "radialGradient", "linearGradient":
 				cursor.inGrad = false
 			}
@@ -607,7 +625,6 @@ func ReadIcon(iconFile string, errMode ...ErrorMode) (*SvgIcon, error) {
 		return nil, errf
 	}
 	defer fin.Close()
-
 	return ReadIconStream(fin, errMode...)
 }
 
@@ -639,7 +656,6 @@ func (c *IconCursor) ReadGradURL(v string) (grad *rasterx.Gradient, err error) {
 			default:
 				return nil, nil //missingIdError
 			}
-
 		}
 	}
 	return nil, nil // not a gradient url, and not an error
@@ -851,8 +867,8 @@ func init() {
 		c.icon.Titles = append(c.icon.Titles, "")
 		return nil
 	}
-	drawFuncs["def"] = func(c *IconCursor, attrs []xml.Attr) error {
-		c.inDef = true
+	drawFuncs["defs"] = func(c *IconCursor, attrs []xml.Attr) error {
+		c.inDefs = true
 		return nil
 	}
 	drawFuncs["linearGradient"] = func(c *IconCursor, attrs []xml.Attr) error {
@@ -950,5 +966,4 @@ func init() {
 		}
 		return nil
 	}
-
 }
