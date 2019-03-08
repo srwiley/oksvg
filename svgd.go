@@ -536,6 +536,7 @@ func (c *IconCursor) readStartElement(se xml.StartElement) (err error) {
 		} else if c.ErrorMode == WarnErrorMode {
 			log.Println(errStr)
 		}
+		return nil
 	}
 	err = df(c, se.Attr)
 	if len(c.Path) > 0 {
