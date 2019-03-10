@@ -68,7 +68,6 @@ type (
 		grad                                    *rasterx.Gradient
 		inTitleText, inDescText, inGrad, inDefs bool
 		currentDef                              []definition
-		defDepths                               []int
 	}
 
 	// definition is used to store what's given in a def tag
