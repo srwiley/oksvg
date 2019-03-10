@@ -67,7 +67,14 @@ type (
 		StyleStack                              []PathStyle
 		grad                                    *rasterx.Gradient
 		inTitleText, inDescText, inGrad, inDefs bool
-		currentDef                              []map[string]string
+		currentDef                              []definition
+		defDepths                               []int
+	}
+
+	// definition is used to store what's given in a def tag
+	definition struct {
+		ID, Tag string
+		Attrs   []xml.Attr
 	}
 )
 
@@ -473,9 +480,9 @@ func (c *IconCursor) readStyleAttr(curStyle *PathStyle, k, v string) error {
 // PushStyle parses the style element, and push it on the style stack. Only color and opacity are supported
 // for fill. Note that this parses both the contents of a style attribute plus
 // direct fill and opacity attributes.
-func (c *IconCursor) PushStyle(se xml.StartElement) error {
+func (c *IconCursor) PushStyle(attrs []xml.Attr) error {
 	var pairs []string
-	for _, attr := range se.Attr {
+	for _, attr := range attrs {
 		switch strings.ToLower(attr.Name.Local) {
 		case "style":
 			pairs = append(pairs, strings.Split(attr.Value, ";")...)
@@ -515,17 +522,21 @@ func trimSuffixes(a string) (b string) {
 
 func (c *IconCursor) readStartElement(se xml.StartElement) (err error) {
 	if c.inDefs {
-		var m = make(map[string]string)
-		m["tag"] = se.Name.Local
+		ID := ""
 		for _, attr := range se.Attr {
-			m[attr.Name.Local] = attr.Value
+			if attr.Name.Local == "id" {
+				ID = attr.Value
+			}
 		}
-		_, ok := m["id"]
-		if ok && len(c.currentDef) > 0 {
-			c.icon.Ids[c.currentDef[0]["id"]] = c.currentDef
-			c.currentDef = make([]map[string]string, 0)
+		if ID != "" && len(c.currentDef) > 0 {
+			c.icon.Ids[c.currentDef[0].ID] = c.currentDef
+			c.currentDef = make([]definition, 0)
 		}
-		c.currentDef = append(c.currentDef, m)
+		c.currentDef = append(c.currentDef, definition{
+			ID:    ID,
+			Tag:   se.Name.Local,
+			Attrs: se.Attr,
+		})
 		return nil
 	}
 	df, ok := drawFuncs[se.Name.Local]
@@ -577,7 +588,7 @@ func ReadIconStream(stream io.Reader, errMode ...ErrorMode) (*SvgIcon, error) {
 		case xml.StartElement:
 			// Reads all recognized style attributes from the start element
 			// and places it on top of the styleStack
-			err = cursor.PushStyle(se)
+			err = cursor.PushStyle(se.Attr)
 			if err != nil {
 				return icon, err
 			}
@@ -589,14 +600,20 @@ func ReadIconStream(stream io.Reader, errMode ...ErrorMode) (*SvgIcon, error) {
 			// pop style
 			cursor.StyleStack = cursor.StyleStack[:len(cursor.StyleStack)-1]
 			switch se.Name.Local {
+			case "g":
+				if cursor.inDefs {
+					cursor.currentDef = append(cursor.currentDef, definition{
+						Tag: "endg",
+					})
+				}
 			case "title":
 				cursor.inTitleText = false
 			case "desc":
 				cursor.inDescText = false
 			case "defs":
 				if len(cursor.currentDef) > 0 {
-					cursor.icon.Ids[cursor.currentDef[0]["id"]] = cursor.currentDef
-					cursor.currentDef = make([]map[string]string, 0)
+					cursor.icon.Ids[cursor.currentDef[0].ID] = cursor.currentDef
+					cursor.currentDef = make([]definition, 0)
 				}
 				cursor.inDefs = false
 			case "radialGradient", "linearGradient":
@@ -753,7 +770,7 @@ func init() {
 		if w == 0 || h == 0 {
 			return nil
 		}
-		rasterx.AddRoundRect(x, y, w+x, h+y, rx, ry, 0, rasterx.RoundGap, &c.Path)
+		rasterx.AddRoundRect(x+c.curX, y+c.curY, w+x+c.curX, h+y+c.curY, rx, ry, 0, rasterx.RoundGap, &c.Path)
 		return nil
 	}
 	drawFuncs["circle"] = func(c *IconCursor, attrs []xml.Attr) error {
@@ -780,7 +797,7 @@ func init() {
 		if rx == 0 || ry == 0 { // not drawn, but not an error
 			return nil
 		}
-		c.EllipseAt(cx, cy, rx, ry)
+		c.EllipseAt(cx+c.curX, cy+c.curY, rx, ry)
 		return nil
 	}
 	drawFuncs["ellipse"] = func(c *IconCursor, attrs []xml.Attr) error {
@@ -805,11 +822,11 @@ func init() {
 			}
 		}
 		c.Path.Start(fixed.Point26_6{
-			X: fixed.Int26_6(x1 * 64),
-			Y: fixed.Int26_6(y1 * 64)})
+			X: fixed.Int26_6((x1 + c.curX) * 64),
+			Y: fixed.Int26_6((y1 + c.curY) * 64)})
 		c.Path.Line(fixed.Point26_6{
-			X: fixed.Int26_6(x2 * 64),
-			Y: fixed.Int26_6(y2 * 64)})
+			X: fixed.Int26_6((x2 + c.curX) * 64),
+			Y: fixed.Int26_6((y2 + c.curY) * 64)})
 		return nil
 	}
 	drawFuncs["polyline"] = func(c *IconCursor, attrs []xml.Attr) error {
@@ -828,12 +845,12 @@ func init() {
 		}
 		if len(c.points) > 4 {
 			c.Path.Start(fixed.Point26_6{
-				X: fixed.Int26_6(c.points[0] * 64),
-				Y: fixed.Int26_6(c.points[1] * 64)})
+				X: fixed.Int26_6((c.points[0] + c.curX) * 64),
+				Y: fixed.Int26_6((c.points[1] + c.curY) * 64)})
 			for i := 2; i < len(c.points)-1; i += 2 {
 				c.Path.Line(fixed.Point26_6{
-					X: fixed.Int26_6(c.points[i] * 64),
-					Y: fixed.Int26_6(c.points[i+1] * 64)})
+					X: fixed.Int26_6((c.points[i] + c.curX) * 64),
+					Y: fixed.Int26_6((c.points[i+1] + c.curY) * 64)})
 			}
 		}
 		return nil
@@ -964,6 +981,69 @@ func init() {
 				}
 			}
 			c.grad.Stops = append(c.grad.Stops, stop)
+		}
+		return nil
+	}
+	drawFuncs["use"] = func(c *IconCursor, attrs []xml.Attr) error {
+		var (
+			href string
+			x, y float64
+			err  error
+		)
+		for _, attr := range attrs {
+			switch attr.Name.Local {
+			case "href":
+				href = attr.Value
+			case "x":
+				x, err = strconv.ParseFloat(attr.Value, 64)
+			case "y":
+				y, err = strconv.ParseFloat(attr.Value, 64)
+			}
+			if err != nil {
+				return err
+			}
+		}
+		c.curX, c.curY = x, y
+		defer func() {
+			c.curX, c.curY = 0, 0
+		}()
+		if href == "" {
+			return errors.New("only use tags with href is supported")
+		}
+		if !strings.HasPrefix(href, "#") {
+			return errors.New("only the ID CSS selector is supported")
+		}
+		id, ok := c.icon.Ids[href[1:]]
+		if !ok {
+			return errors.New("href ID in use statement was not found in saved defs")
+		}
+		defs := id.([]definition)
+		for _, def := range defs {
+			if def.Tag == "endg" {
+				// pop style
+				c.StyleStack = c.StyleStack[:len(c.StyleStack)-1]
+				continue
+			}
+			if err = c.PushStyle(def.Attrs); err != nil {
+				return err
+			}
+			df, ok := drawFuncs[def.Tag]
+			if !ok {
+				errStr := "Cannot process svg element " + def.Tag
+				if c.ErrorMode == StrictErrorMode {
+					return errors.New(errStr)
+				} else if c.ErrorMode == WarnErrorMode {
+					log.Println(errStr)
+				}
+				return nil
+			}
+			if err := df(c, def.Attrs); err != nil {
+				return err
+			}
+			if def.Tag != "g" {
+				// pop style
+				c.StyleStack = c.StyleStack[:len(c.StyleStack)-1]
+			}
 		}
 		return nil
 	}
