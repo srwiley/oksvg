@@ -17,22 +17,22 @@ import (
 	//"github.com/srwiley/go/scanFT"
 )
 
-const testArco = `M150,350 l 50,-55 
-           a25,25 -30 0,1 50,-25 l 50,-25 
-           a25,50 -30 0,1 50,-25 l 50,-25 
-           a25,75 -30 0,1 50,-25 l 50,-25 
+const testArco = `M150,350 l 50,-55
+           a25,25 -30 0,1 50,-25 l 50,-25
+           a25,50 -30 0,1 50,-25 l 50,-25
+           a25,75 -30 0,1 50,-25 l 50,-25
            a25,100 -30 0,1 50,-25 l 50,15z`
 
-const testArco2 = `M150,350 l 50,-55 
-           a35,25 -30 0,0 50,-25 l 50,-25 
-           a25,50 -30 0,1 50,-25 l 50,-25 
-           a25,75 -30 0,1 50,-25 l 50,-25 
+const testArco2 = `M150,350 l 50,-55
+           a35,25 -30 0,0 50,-25 l 50,-25
+           a25,50 -30 0,1 50,-25 l 50,-25
+           a25,75 -30 0,1 50,-25 l 50,-25
            a25,100 -30 0,1 50,-25, l 50,15z`
 
-const testArcoS = `M150,350 l 50,-55 
+const testArcoS = `M150,350 l 50,-55
            a35,25 -30 0,0 50,-25,
            25,50 -30 0,1 50,-25
-           a25,75 -30 0,1 50,-25 l 50,-25 
+           a25,75 -30 0,1 50,-25 l 50,-25
            a25,100 -30 0,1 50,-25 l 50,15,0,25,-15,-15  z`
 
 // Explicitly call each command in abs and rel mode and concatenated forms
@@ -169,7 +169,7 @@ func TestLandscapeIcons(t *testing.T) {
 
 func TestTestIcons(t *testing.T) {
 	for _, p := range []string{
-		"astronaut", "jupiter", "lander", "school-bus", "telescope", "content-cut-light"} {
+		"astronaut", "jupiter", "lander", "school-bus", "telescope", "content-cut-light", "defs"} {
 		SaveIcon(t, "testdata/testIcons/"+p+".svg")
 	}
 }
@@ -186,7 +186,6 @@ func TestStrokeIcons(t *testing.T) {
 		"TestShapes5.svg",
 		"TestShapes6.svg",
 	} {
-		t.Log("reading ", p)
 		SaveIcon(t, "testdata/"+p)
 	}
 }
