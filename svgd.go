@@ -55,7 +55,8 @@ type (
 		ViewBox      struct{ X, Y, W, H float64 }
 		Titles       []string // Title elements collect here
 		Descriptions []string // Description elements collect here
-		Ids          map[string]interface{}
+		Grads        map[string]*rasterx.Gradient
+		Defs         map[string][]definition
 		SVGPaths     []SvgPath
 		Transform    rasterx.Matrix2D
 	}
@@ -520,7 +521,11 @@ func trimSuffixes(a string) (b string) {
 }
 
 func (c *IconCursor) readStartElement(se xml.StartElement) (err error) {
-	if c.inDefs {
+	var skipDef bool
+	if se.Name.Local == "radialGradient" || se.Name.Local == "linearGradient" || c.inGrad {
+		skipDef = true
+	}
+	if c.inDefs && !skipDef {
 		ID := ""
 		for _, attr := range se.Attr {
 			if attr.Name.Local == "id" {
@@ -528,7 +533,7 @@ func (c *IconCursor) readStartElement(se xml.StartElement) (err error) {
 			}
 		}
 		if ID != "" && len(c.currentDef) > 0 {
-			c.icon.Ids[c.currentDef[0].ID] = c.currentDef
+			c.icon.Defs[c.currentDef[0].ID] = c.currentDef
 			c.currentDef = make([]definition, 0)
 		}
 		c.currentDef = append(c.currentDef, definition{
@@ -567,7 +572,7 @@ func (c *IconCursor) readStartElement(se xml.StartElement) (err error) {
 // if it does not handle an element found in the icon file. Ignore warnings is
 // the default if no ErrorMode value is provided.
 func ReadIconStream(stream io.Reader, errMode ...ErrorMode) (*SvgIcon, error) {
-	icon := &SvgIcon{Ids: make(map[string]interface{}), Transform: rasterx.Identity}
+	icon := &SvgIcon{Defs: make(map[string][]definition), Grads: make(map[string]*rasterx.Gradient), Transform: rasterx.Identity}
 	cursor := &IconCursor{StyleStack: []PathStyle{DefaultStyle}, icon: icon}
 	if len(errMode) > 0 {
 		cursor.ErrorMode = errMode[0]
@@ -611,7 +616,7 @@ func ReadIconStream(stream io.Reader, errMode ...ErrorMode) (*SvgIcon, error) {
 				cursor.inDescText = false
 			case "defs":
 				if len(cursor.currentDef) > 0 {
-					cursor.icon.Ids[cursor.currentDef[0].ID] = cursor.currentDef
+					cursor.icon.Defs[cursor.currentDef[0].ID] = cursor.currentDef
 					cursor.currentDef = make([]definition, 0)
 				}
 				cursor.inDefs = false
@@ -667,12 +672,11 @@ func (c *IconCursor) ReadGradURL(v string) (grad *rasterx.Gradient, err error) {
 	if strings.HasPrefix(v, "url(") && strings.HasSuffix(v, ")") {
 		urlStr := strings.TrimSpace(v[4 : len(v)-1])
 		if strings.HasPrefix(urlStr, "#") {
-			switch grad := c.icon.Ids[urlStr[1:]].(type) {
-			case *rasterx.Gradient:
+			grad, ok := c.icon.Grads[urlStr[1:]]
+			if ok {
 				return grad, nil
-			default:
-				return nil, nil //missingIdError
 			}
+			return nil, nil // missingIdError
 		}
 	}
 	return nil, nil // not a gradient url, and not an error
@@ -898,7 +902,7 @@ func init() {
 			case "id":
 				id := attr.Value
 				if len(id) >= 0 {
-					c.icon.Ids[id] = c.grad
+					c.icon.Grads[id] = c.grad
 				} else {
 					return errZeroLengthID
 				}
@@ -930,7 +934,7 @@ func init() {
 			case "id":
 				id := attr.Value
 				if len(id) >= 0 {
-					c.icon.Ids[id] = c.grad
+					c.icon.Grads[id] = c.grad
 				} else {
 					return errZeroLengthID
 				}
@@ -1012,11 +1016,10 @@ func init() {
 		if !strings.HasPrefix(href, "#") {
 			return errors.New("only the ID CSS selector is supported")
 		}
-		id, ok := c.icon.Ids[href[1:]]
+		defs, ok := c.icon.Defs[href[1:]]
 		if !ok {
 			return errors.New("href ID in use statement was not found in saved defs")
 		}
-		defs := id.([]definition)
 		for _, def := range defs {
 			if def.Tag == "endg" {
 				// pop style
