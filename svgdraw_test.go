@@ -92,7 +92,6 @@ func DrawIcon(t *testing.T, iconPath string) image.Image {
 	//tb.Max.X /= 2
 	scannerGV := NewScannerGV(w, h, img, img.Bounds())
 	raster := NewDasher(w, h, scannerGV)
-
 	icon.Draw(raster, 1.0)
 	return img
 }
@@ -144,12 +143,17 @@ func TestSvgPathsStroke(t *testing.T) {
 		c := &PathCursor{}
 		d := DefaultStyle
 		icon := SvgIcon{}
+		icon.ViewBox.X = 0
+		icon.ViewBox.Y = 0
+		icon.ViewBox.H = float64(w)
+		icon.ViewBox.W = float64(w)
 
 		err := c.CompilePath(p)
 		if err != nil {
 			t.Error(err)
 		}
 		icon.SVGPaths = append(icon.SVGPaths, SvgPath{PathStyle: d, Path: c.Path})
+		icon.SetTarget(0, 0, icon.ViewBox.H, icon.ViewBox.W)
 		icon.Draw(raster, 1)
 
 		err = SaveToPngFile(fmt.Sprintf("testdata/fill_%d.png", i), img)
