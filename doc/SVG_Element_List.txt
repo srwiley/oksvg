@@ -4,7 +4,7 @@ Document Elements
 
 Yes: 'svg', 'g', ‘transform’,
 
-No:  'marker', 'id', ‘class’,  ‘externalResourcesRequired’
+No:  'marker', ‘class’,  ‘externalResourcesRequired’
 
 Partial:
 'title' : svg root element only
@@ -12,7 +12,7 @@ Partial:
 'desc' : svg root element only 
 
 Drawing elements: 
-Yes: ‘circle’, ‘ellipse’, ‘line’, ‘path’, ‘polygon’, ‘polyline’, ‘rect’, ’defs’, ’use’
+Yes: ‘circle’, ‘ellipse’, ‘line’, ‘path’, ‘polygon’, ‘polyline’, ‘rect’, ’defs’, 'id', ’use’
 Note: 'defs' should be declared before 'use' in the svg.
 
 Path:
