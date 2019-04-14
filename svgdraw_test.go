@@ -17,22 +17,22 @@ import (
 	//"github.com/srwiley/go/scanFT"
 )
 
-const testArco = `M150,350 l 50,-55 
-           a25,25 -30 0,1 50,-25 l 50,-25 
-           a25,50 -30 0,1 50,-25 l 50,-25 
-           a25,75 -30 0,1 50,-25 l 50,-25 
+const testArco = `M150,350 l 50,-55
+           a25,25 -30 0,1 50,-25 l 50,-25
+           a25,50 -30 0,1 50,-25 l 50,-25
+           a25,75 -30 0,1 50,-25 l 50,-25
            a25,100 -30 0,1 50,-25 l 50,15z`
 
-const testArco2 = `M150,350 l 50,-55 
-           a35,25 -30 0,0 50,-25 l 50,-25 
-           a25,50 -30 0,1 50,-25 l 50,-25 
-           a25,75 -30 0,1 50,-25 l 50,-25 
+const testArco2 = `M150,350 l 50,-55
+           a35,25 -30 0,0 50,-25 l 50,-25
+           a25,50 -30 0,1 50,-25 l 50,-25
+           a25,75 -30 0,1 50,-25 l 50,-25
            a25,100 -30 0,1 50,-25, l 50,15z`
 
-const testArcoS = `M150,350 l 50,-55 
+const testArcoS = `M150,350 l 50,-55
            a35,25 -30 0,0 50,-25,
            25,50 -30 0,1 50,-25
-           a25,75 -30 0,1 50,-25 l 50,-25 
+           a25,75 -30 0,1 50,-25 l 50,-25
            a25,100 -30 0,1 50,-25 l 50,15,0,25,-15,-15  z`
 
 // Explicitly call each command in abs and rel mode and concatenated forms
@@ -92,7 +92,6 @@ func DrawIcon(t *testing.T, iconPath string) image.Image {
 	//tb.Max.X /= 2
 	scannerGV := NewScannerGV(w, h, img, img.Bounds())
 	raster := NewDasher(w, h, scannerGV)
-
 	icon.Draw(raster, 1.0)
 	return img
 }
@@ -144,12 +143,17 @@ func TestSvgPathsStroke(t *testing.T) {
 		c := &PathCursor{}
 		d := DefaultStyle
 		icon := SvgIcon{}
+		icon.ViewBox.X = 0
+		icon.ViewBox.Y = 0
+		icon.ViewBox.H = float64(w)
+		icon.ViewBox.W = float64(w)
 
 		err := c.CompilePath(p)
 		if err != nil {
 			t.Error(err)
 		}
 		icon.SVGPaths = append(icon.SVGPaths, SvgPath{PathStyle: d, Path: c.Path})
+		icon.SetTarget(0, 0, icon.ViewBox.H, icon.ViewBox.W)
 		icon.Draw(raster, 1)
 
 		err = SaveToPngFile(fmt.Sprintf("testdata/fill_%d.png", i), img)
@@ -169,7 +173,7 @@ func TestLandscapeIcons(t *testing.T) {
 
 func TestTestIcons(t *testing.T) {
 	for _, p := range []string{
-		"astronaut", "jupiter", "lander", "school-bus", "telescope", "content-cut-light"} {
+		"astronaut", "jupiter", "lander", "school-bus", "telescope", "content-cut-light", "defs"} {
 		SaveIcon(t, "testdata/testIcons/"+p+".svg")
 	}
 }
@@ -186,7 +190,6 @@ func TestStrokeIcons(t *testing.T) {
 		"TestShapes5.svg",
 		"TestShapes6.svg",
 	} {
-		t.Log("reading ", p)
 		SaveIcon(t, "testdata/"+p)
 	}
 }
