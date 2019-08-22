@@ -9,7 +9,6 @@ import (
 	"errors"
 	"log"
 	"math"
-	"strconv"
 	"unicode"
 
 	"github.com/srwiley/rasterx"
@@ -94,7 +93,7 @@ func (c *PathCursor) ReadFloat(numStr string) error {
 				isFirst = false
 				continue
 			}
-			f, err := strconv.ParseFloat(numStr[last:i], 64)
+			f, err := parseFloat(numStr[last:i], 64)
 			if err != nil {
 				return err
 			}
@@ -102,7 +101,7 @@ func (c *PathCursor) ReadFloat(numStr string) error {
 			last = i
 		}
 	}
-	f, err := strconv.ParseFloat(numStr[last:], 64)
+	f, err := parseFloat(numStr[last:], 64)
 	if err != nil {
 		return err
 	}
