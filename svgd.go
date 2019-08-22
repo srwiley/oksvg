@@ -444,7 +444,7 @@ func (c *IconCursor) readStyleAttr(curStyle *PathStyle, k, v string) error {
 		curStyle.DashOffset = dashOffset
 	case "stroke-dasharray":
 		if v != "none" {
-			dashes := strings.Split(v, ",")
+			dashes := splitOnCommaOrSpace(v)
 			dList := make([]float64, len(dashes))
 			for i, dstr := range dashes {
 				d, err := strconv.ParseFloat(strings.TrimSpace(dstr), 64)
@@ -518,6 +518,14 @@ func trimSuffixes(a string) (b string) {
 		b = strings.TrimSuffix(b, v)
 	}
 	return
+}
+
+// splitOnCommaOrSpace returns a list of strings after splitting the input on comma and space delimiters
+func splitOnCommaOrSpace(s string) []string {
+	return strings.FieldsFunc(s,
+		func(r rune) bool {
+			return r == ',' || r == ' '
+	})
 }
 
 func (c *IconCursor) readStartElement(se xml.StartElement) (err error) {
