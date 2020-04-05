@@ -16,7 +16,7 @@ import (
 	"strconv"
 	"strings"
 
-	"golang.org/x/net/html/charset"
+	//"golang.org/x/net/html/charset"
 
 	"encoding/xml"
 	"errors"
@@ -59,6 +59,7 @@ type (
 		Defs         map[string][]definition
 		SVGPaths     []SvgPath
 		Transform    rasterx.Matrix2D
+		Images       []*Image
 	}
 
 	// IconCursor is used while parsing SVG files
@@ -69,6 +70,16 @@ type (
 		grad                                    *rasterx.Gradient
 		inTitleText, inDescText, inGrad, inDefs bool
 		currentDef                              []definition
+	}
+
+	Image struct {
+		ID        string
+		X         float64
+		Y         float64
+		W         float64
+		H         float64
+		Transform rasterx.Matrix2D
+		Href      string
 	}
 
 	// definition is used to store what's given in a def tag
@@ -312,6 +323,29 @@ func (c *IconCursor) readTransformAttr(m1 rasterx.Matrix2D, k string) (rasterx.M
 		}
 	default:
 		return m1, errParamMismatch
+	}
+	return m1, nil
+}
+
+func (c *IconCursor) parseTransformHelper(m1 rasterx.Matrix2D, v string) (rasterx.Matrix2D, error) {
+	ts := strings.Split(v, ")")
+	for _, t := range ts {
+		t = strings.TrimSpace(t)
+		if len(t) == 0 {
+			continue
+		}
+		d := strings.Split(t, "(")
+		if len(d) != 2 || len(d[1]) < 1 {
+			return m1, errParamMismatch // badly formed transformation
+		}
+		err := c.GetPoints(d[1])
+		if err != nil {
+			return m1, err
+		}
+		m1, err = c.readTransformAttr(m1, strings.ToLower(strings.TrimSpace(d[0])))
+		if err != nil {
+			return m1, err
+		}
 	}
 	return m1, nil
 }
@@ -591,7 +625,7 @@ func ReadIconStream(stream io.Reader, errMode ...ErrorMode) (*SvgIcon, error) {
 		cursor.ErrorMode = errMode[0]
 	}
 	decoder := xml.NewDecoder(stream)
-	decoder.CharsetReader = charset.NewReaderLabel
+	//decoder.CharsetReader = charset.NewReaderLabel
 	for {
 		t, err := decoder.Token()
 		if err != nil {
@@ -782,6 +816,40 @@ var (
 		"title":          titleF,
 		"linearGradient": linearGradientF,
 		"radialGradient": radialGradientF,
+		"image":          imageF,
+	}
+
+	imageF svgFunc = func(c *IconCursor, attrs []xml.Attr) error {
+		var id string
+		var href string
+		var x, y float64
+		var width, height float64
+		matrix := rasterx.Identity
+		var err error
+		for _, attr := range attrs {
+			switch attr.Name.Local {
+			case "id":
+				id = attr.Value
+			case "x":
+				x, err = strconv.ParseFloat(attr.Value, 64)
+			case "y":
+				y, err = strconv.ParseFloat(attr.Value, 64)
+			case "width":
+				width, err = strconv.ParseFloat(attr.Value, 64)
+			case "height":
+				height, err = strconv.ParseFloat(attr.Value, 64)
+			case "href":
+				href = attr.Value
+			case "transform":
+				ic := &IconCursor{}
+				matrix, err = ic.parseTransformHelper(rasterx.Identity, attr.Value)
+			}
+			if err != nil {
+				return err
+			}
+		}
+		c.icon.Images = append(c.icon.Images, &Image{id, x, y, width, height, matrix, href})
+		return nil
 	}
 
 	svgF svgFunc = func(c *IconCursor, attrs []xml.Attr) error {
