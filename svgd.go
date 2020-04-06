@@ -141,6 +141,7 @@ func (img *Image) DrawTransformed(r *rasterx.Dasher, opacity float64, t rasterx.
 func (img *Image) getImage() image.Image {
 	if img.imgcache == nil {
 		img.imgcache = decodeImage(img.imgdata)
+		img.imgdata = ""
 	}
 	return img.imgcache
 }
