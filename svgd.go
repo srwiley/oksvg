@@ -18,7 +18,7 @@ import (
 	"strconv"
 	"strings"
 
-	//"golang.org/x/net/html/charset"
+	"golang.org/x/net/html/charset"
 
 	"encoding/base64"
 	"encoding/xml"
@@ -702,7 +702,7 @@ func ReadIconStream(stream io.Reader, errMode ...ErrorMode) (*SvgIcon, error) {
 		cursor.ErrorMode = errMode[0]
 	}
 	decoder := xml.NewDecoder(stream)
-	//decoder.CharsetReader = charset.NewReaderLabel
+	decoder.CharsetReader = charset.NewReaderLabel
 	for {
 		t, err := decoder.Token()
 		if err != nil {
