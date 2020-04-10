@@ -1,4 +1,4 @@
-module github.com/qiniu/oksvg
+module github.com/srwiley/oksvg
 
 go 1.14
 
