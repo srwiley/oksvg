@@ -11,6 +11,8 @@
 package oksvg
 
 import (
+	"bytes"
+	"image"
 	"io"
 	"os"
 	"strconv"
@@ -18,6 +20,7 @@ import (
 
 	"golang.org/x/net/html/charset"
 
+	"encoding/base64"
 	"encoding/xml"
 	"errors"
 	"image/color"
@@ -26,10 +29,16 @@ import (
 
 	"github.com/srwiley/rasterx"
 	"golang.org/x/image/colornames"
+	"golang.org/x/image/draw"
 	"golang.org/x/image/math/fixed"
 )
 
 type (
+	// Shape type.
+	Shape interface {
+		DrawTransformed(r *rasterx.Dasher, opacity float64, t rasterx.Matrix2D)
+	}
+
 	// PathStyle holds the state of the SVG style
 	PathStyle struct {
 		FillOpacity, LineOpacity          float64
@@ -57,7 +66,7 @@ type (
 		Descriptions []string // Description elements collect here
 		Grads        map[string]*rasterx.Gradient
 		Defs         map[string][]definition
-		SVGPaths     []SvgPath
+		Shapes       []Shape
 		Transform    rasterx.Matrix2D
 	}
 
@@ -71,12 +80,27 @@ type (
 		currentDef                              []definition
 	}
 
+	// Image type.
+	Image struct {
+		ID        string
+		X         float64
+		Y         float64
+		W         float64
+		H         float64
+		Transform rasterx.Matrix2D
+		imgcache  image.Image
+		imgdata   string
+	}
+
 	// definition is used to store what's given in a def tag
 	definition struct {
 		ID, Tag string
 		Attrs   []xml.Attr
 	}
 )
+
+// KernelUsed var.
+var KernelUsed *draw.Kernel = draw.BiLinear
 
 // DefaultStyle sets the default PathStyle to fill black, winding rule,
 // full opacity, no stroke, ButtCap line end and Bevel line connect.
@@ -87,8 +111,8 @@ var DefaultStyle = PathStyle{1.0, 1.0, 2.0, 0.0, 4.0, nil, true,
 // Draw the compiled SVG icon into the GraphicContext.
 // All elements should be contained by the Bounds rectangle of the SvgIcon.
 func (s *SvgIcon) Draw(r *rasterx.Dasher, opacity float64) {
-	for _, svgp := range s.SVGPaths {
-		svgp.DrawTransformed(r, opacity, s.Transform)
+	for _, shape := range s.Shapes {
+		shape.DrawTransformed(r, opacity, s.Transform)
 	}
 }
 
@@ -97,6 +121,70 @@ func (s *SvgIcon) SetTarget(x, y, w, h float64) {
 	scaleW := w / s.ViewBox.W
 	scaleH := h / s.ViewBox.H
 	s.Transform = rasterx.Identity.Translate(x-s.ViewBox.X, y-s.ViewBox.Y).Scale(scaleW, scaleH)
+}
+
+// DrawTransformed func.
+func (img *Image) DrawTransformed(r *rasterx.Dasher, opacity float64, t rasterx.Matrix2D) {
+	log.Println("Image.DrawTransformed")
+	scan, ok := r.Scanner.(*rasterx.ScannerGV)
+	if !ok {
+		panic("Scanner isn't a ScannerGV instance.")
+	}
+	m := img.Transform
+	m = t.Mult(m)
+	_ = m
+	src := img.getImage()
+	sr := image.Rect(int(img.X), int(img.Y), int(img.X+img.W), int(img.Y+img.H))
+	KernelUsed.Scale(scan.Dest, scan.Targ, src, sr, draw.Over, nil)
+}
+
+func (img *Image) getImage() image.Image {
+	if img.imgcache == nil {
+		img.imgcache = decodeImage(img.imgdata)
+		img.imgdata = ""
+	}
+	return img.imgcache
+}
+
+func newImage(id string, x, y, width, height float64, m rasterx.Matrix2D, href string) *Image {
+	return &Image{
+		ID: id, X: x, Y: y, W: width, H: height,
+		Transform: m, imgdata: href,
+	}
+}
+
+func decodeData(href string) (mime, encoder, data string) {
+	if strings.HasPrefix(href, "data:") {
+		pos := strings.IndexByte(href[5:], ';')
+		if pos > 0 {
+			pos += 5
+			mime = href[5:pos]
+			href = href[pos+1:]
+			pos = strings.IndexByte(href, ',')
+			if pos > 0 {
+				encoder = href[:pos]
+				data = href[pos+1:]
+			}
+		}
+	}
+	return
+}
+
+func decodeImage(href string) image.Image {
+	mime, encoder, data := decodeData(href)
+	if encoder == "" || !strings.HasPrefix(mime, "image/") {
+		panic("Unknown image data: " + mime + ", " + encoder)
+	}
+	b, err := base64.StdEncoding.DecodeString(data)
+	if err != nil {
+		panic(err)
+	}
+	in := bytes.NewReader(b)
+	img, _, err := image.Decode(in)
+	if err != nil {
+		panic(err)
+	}
+	return img
 }
 
 // Draw the compiled SvgPath into the Dasher.
@@ -312,6 +400,29 @@ func (c *IconCursor) readTransformAttr(m1 rasterx.Matrix2D, k string) (rasterx.M
 		}
 	default:
 		return m1, errParamMismatch
+	}
+	return m1, nil
+}
+
+func (c *IconCursor) parseTransformHelper(m1 rasterx.Matrix2D, v string) (rasterx.Matrix2D, error) {
+	ts := strings.Split(v, ")")
+	for _, t := range ts {
+		t = strings.TrimSpace(t)
+		if len(t) == 0 {
+			continue
+		}
+		d := strings.Split(t, "(")
+		if len(d) != 2 || len(d[1]) < 1 {
+			return m1, errParamMismatch // badly formed transformation
+		}
+		err := c.GetPoints(d[1])
+		if err != nil {
+			return m1, err
+		}
+		m1, err = c.readTransformAttr(m1, strings.ToLower(strings.TrimSpace(d[0])))
+		if err != nil {
+			return m1, err
+		}
 	}
 	return m1, nil
 }
@@ -571,8 +682,8 @@ func (c *IconCursor) readStartElement(se xml.StartElement) (err error) {
 		//The cursor parsed a path from the xml element
 		pathCopy := make(rasterx.Path, len(c.Path))
 		copy(pathCopy, c.Path)
-		c.icon.SVGPaths = append(c.icon.SVGPaths,
-			SvgPath{c.StyleStack[len(c.StyleStack)-1], pathCopy})
+		c.icon.Shapes = append(c.icon.Shapes,
+			&SvgPath{c.StyleStack[len(c.StyleStack)-1], pathCopy})
 		c.Path = c.Path[:0]
 	}
 	return
@@ -782,6 +893,40 @@ var (
 		"title":          titleF,
 		"linearGradient": linearGradientF,
 		"radialGradient": radialGradientF,
+		"image":          imageF,
+	}
+
+	imageF svgFunc = func(c *IconCursor, attrs []xml.Attr) error {
+		var id string
+		var href string
+		var x, y float64
+		var width, height float64
+		matrix := rasterx.Identity
+		var err error
+		for _, attr := range attrs {
+			switch attr.Name.Local {
+			case "id":
+				id = attr.Value
+			case "x":
+				x, err = strconv.ParseFloat(attr.Value, 64)
+			case "y":
+				y, err = strconv.ParseFloat(attr.Value, 64)
+			case "width":
+				width, err = strconv.ParseFloat(attr.Value, 64)
+			case "height":
+				height, err = strconv.ParseFloat(attr.Value, 64)
+			case "href":
+				href = attr.Value
+			case "transform":
+				ic := &IconCursor{}
+				matrix, err = ic.parseTransformHelper(rasterx.Identity, attr.Value)
+			}
+			if err != nil {
+				return err
+			}
+		}
+		c.icon.Shapes = append(c.icon.Shapes, newImage(id, x, y, width, height, matrix, href))
+		return nil
 	}
 
 	svgF svgFunc = func(c *IconCursor, attrs []xml.Attr) error {
