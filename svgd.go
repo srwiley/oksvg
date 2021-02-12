@@ -232,7 +232,7 @@ func ParseSVGColor(colorStr string) (color.Color, error) {
 		}
 		return color.NRGBA{cvals[0], cvals[1], cvals[2], 0xFF}, nil
 	}
-	if colorStr[0] == '#' {
+	if strings.HasPrefix(colorStr, "#") {
 		r, g, b, err := ParseSVGColorNum(colorStr)
 		if err != nil {
 			return nil, err
