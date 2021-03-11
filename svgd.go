@@ -11,6 +11,7 @@
 package oksvg
 
 import (
+	"fmt"
 	"io"
 	"os"
 	"strconv"
@@ -232,6 +233,70 @@ func ParseSVGColor(colorStr string) (color.Color, error) {
 		}
 		return color.NRGBA{cvals[0], cvals[1], cvals[2], 0xFF}, nil
 	}
+
+	cStr = strings.TrimPrefix(colorStr, "hsl(")
+	if cStr != colorStr {
+		cStr := strings.TrimSuffix(cStr, ")")
+		vals := strings.Split(cStr, ",")
+		if len(vals) != 3 {
+			return color.NRGBA{}, errParamMismatch
+		}
+
+		H, err := strconv.ParseInt(strings.TrimSpace(vals[0]), 10, 64)
+		if err != nil {
+			return color.NRGBA{}, fmt.Errorf("invalid hue in hsl: '%s' (%s)", vals[0], err)
+		}
+
+		S, err := strconv.ParseFloat(strings.TrimSpace(vals[1][:len(vals[1])-1]), 64)
+		if err != nil {
+			return color.NRGBA{}, fmt.Errorf("invalid saturation in hsl: '%s' (%s)", vals[1], err)
+		}
+		S = S / 100
+
+		L, err := strconv.ParseFloat(strings.TrimSpace(vals[2][:len(vals[2])-1]), 64)
+		if err != nil {
+			return color.NRGBA{}, fmt.Errorf("invalid lightness in hsl: '%s' (%s)", vals[2], err)
+		}
+		L = L / 100
+
+		C := (1 - math.Abs((2*L)-1)) * S
+		X := C * (1 - math.Abs(math.Mod((float64(H)/60), 2)-1))
+		m := L - C/2
+
+		var rp, gp, bp float64
+		if H < 60 {
+			rp, gp, bp = float64(C), float64(X), float64(0)
+		} else if H < 120 {
+			rp, gp, bp = float64(X), float64(C), float64(0)
+		} else if H < 180 {
+			rp, gp, bp = float64(0), float64(C), float64(X)
+		} else if H < 240 {
+			rp, gp, bp = float64(0), float64(X), float64(C)
+		} else if H < 300 {
+			rp, gp, bp = float64(X), float64(0), float64(C)
+		} else {
+			rp, gp, bp = float64(C), float64(0), float64(X)
+		}
+
+		r, g, b := math.Round((rp+m)*255), math.Round((gp+m)*255), math.Round((bp+m)*255)
+		if r > 255 {
+			r = 255
+		}
+		if g > 255 {
+			g = 255
+		}
+		if b > 255 {
+			b = 255
+		}
+
+		return color.NRGBA{
+			uint8(r),
+			uint8(g),
+			uint8(b),
+			0xFF,
+		}, nil
+	}
+
 	if colorStr[0] == '#' {
 		r, g, b, err := ParseSVGColorNum(colorStr)
 		if err != nil {
