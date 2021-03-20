@@ -204,7 +204,7 @@ func ParseSVGColor(colorStr string) (color.Color, error) {
 		return color.NRGBA{0, 0, 0, 255}, nil
 	}
 	switch v {
-	case "none":
+	case "none", "":
 		// nil signals that the function (fill or stroke) is off;
 		// not the same as black
 		return nil, nil
