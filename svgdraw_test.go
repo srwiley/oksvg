@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"fmt"
 	"image"
+	"image/color"
 	"os"
 
 	"image/png"
@@ -192,5 +193,19 @@ func TestStrokeIcons(t *testing.T) {
 		"TestShapes6.svg",
 	} {
 		SaveIcon(t, "testdata/"+p)
+	}
+}
+
+func TestHSL(t *testing.T) {
+	c, err := ParseSVGColor("hsl(198, 47%, 65%)")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	rgb := c.(color.NRGBA)
+	if rgb.R != 124 || rgb.G != 183 || rgb.B != 208 || rgb.A != 255 {
+		t.Errorf("Invalid conversion: rgba(%d, %d, %d, %d)", rgb.R, rgb.G, rgb.B, rgb.A)
+		return
 	}
 }
