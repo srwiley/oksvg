@@ -170,12 +170,20 @@ func (svgp *SvgPath) DrawTransformed(r *rasterx.Dasher, opacity float64, t raste
 	}
 }
 
-func (svgp *SvgPath) GetFillerColor() color.Color {
+func (svgp *SvgPath) GetFillColor() color.Color {
 	return getColor(svgp.fillerColor)
 }
 
-func (svgp *SvgPath) GetLinerColor() color.Color {
+func (svgp *SvgPath) GetLineColor() color.Color {
 	return getColor(svgp.linerColor)
+}
+
+func (svgp *SvgPath) SetFillColor(clr color.Color) color.Color {
+	svgp.fillerColor = clr
+}
+
+func (svgp *SvgPath) SetLineColor(clr color.Color) {
+	svgp.linerColor = clr
 }
 
 // ParseSVGColorNum reads the SFG color string e.g. #FBD9BD
