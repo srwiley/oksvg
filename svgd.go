@@ -170,6 +170,14 @@ func (svgp *SvgPath) DrawTransformed(r *rasterx.Dasher, opacity float64, t raste
 	}
 }
 
+func (svgp *SvgPath) GetFillerColor() color.Color {
+	return getColor(svgp.fillerColor)
+}
+
+func (svgp *SvgPath) GetLinerColor() color.Color {
+	return getColor(svgp.linerColor)
+}
+
 // ParseSVGColorNum reads the SFG color string e.g. #FBD9BD
 func ParseSVGColorNum(colorStr string) (r, g, b uint8, err error) {
 	colorStr = strings.TrimPrefix(colorStr, "#")
