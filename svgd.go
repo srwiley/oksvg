@@ -170,18 +170,22 @@ func (svgp *SvgPath) DrawTransformed(r *rasterx.Dasher, opacity float64, t raste
 	}
 }
 
+// GetFillColor returns the fill color of the SvgPath if one is defined and otherwise returns colornames.Black
 func (svgp *SvgPath) GetFillColor() color.Color {
 	return getColor(svgp.fillerColor)
 }
 
+// GetLineColor returns the stroke color of the SvgPath if one is defined and otherwise returns colornames.Black
 func (svgp *SvgPath) GetLineColor() color.Color {
 	return getColor(svgp.linerColor)
 }
 
+// SetFillColor sets the fill color of the SvgPath
 func (svgp *SvgPath) SetFillColor(clr color.Color) {
 	svgp.fillerColor = clr
 }
 
+// SetLineColor sets the line color of the SvgPath
 func (svgp *SvgPath) SetLineColor(clr color.Color) {
 	svgp.linerColor = clr
 }
