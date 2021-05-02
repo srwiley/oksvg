@@ -178,7 +178,7 @@ func (svgp *SvgPath) GetLineColor() color.Color {
 	return getColor(svgp.linerColor)
 }
 
-func (svgp *SvgPath) SetFillColor(clr color.Color) color.Color {
+func (svgp *SvgPath) SetFillColor(clr color.Color) {
 	svgp.fillerColor = clr
 }
 
