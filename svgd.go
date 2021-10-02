@@ -11,19 +11,19 @@
 package oksvg
 
 import (
+	"encoding/xml"
+	"errors"
 	"fmt"
+	"image"
+	"image/color"
 	"io"
+	"log"
+	"math"
 	"os"
 	"strconv"
 	"strings"
 
 	"golang.org/x/net/html/charset"
-
-	"encoding/xml"
-	"errors"
-	"image/color"
-	"log"
-	"math"
 
 	"github.com/srwiley/rasterx"
 	"golang.org/x/image/colornames"
@@ -59,17 +59,18 @@ type (
 		Grads        map[string]*rasterx.Gradient
 		Defs         map[string][]definition
 		SVGPaths     []SvgPath
+		SvgTexts     []SvgText // Text elements collect here
 		Transform    rasterx.Matrix2D
 	}
 
 	// IconCursor is used while parsing SVG files
 	IconCursor struct {
 		PathCursor
-		icon                                    *SvgIcon
-		StyleStack                              []PathStyle
-		grad                                    *rasterx.Gradient
-		inTitleText, inDescText, inGrad, inDefs bool
-		currentDef                              []definition
+		icon                                            *SvgIcon
+		StyleStack                                      []PathStyle
+		grad                                            *rasterx.Gradient
+		inTitleText, inDescText, inGrad, inDefs, inText bool
+		currentDef                                      []definition
 	}
 
 	// definition is used to store what's given in a def tag
@@ -90,6 +91,12 @@ var DefaultStyle = PathStyle{1.0, 1.0, 2.0, 0.0, 4.0, nil, true,
 func (s *SvgIcon) Draw(r *rasterx.Dasher, opacity float64) {
 	for _, svgp := range s.SVGPaths {
 		svgp.DrawTransformed(r, opacity, s.Transform)
+	}
+}
+
+func (s *SvgIcon) DrawTexts(img *image.RGBA, opacity float64) {
+	for _, svgt := range s.SvgTexts {
+		svgt.DrawTransformed(img, opacity, s.Transform)
 	}
 }
 
@@ -720,14 +727,19 @@ func ReadIconStream(stream io.Reader, errMode ...ErrorMode) (*SvgIcon, error) {
 				cursor.inDefs = false
 			case "radialGradient", "linearGradient":
 				cursor.inGrad = false
+			case "text":
+				cursor.inText = false
 			}
 		case xml.CharData:
-			if cursor.inTitleText == true {
+			switch {
+			case cursor.inText == true:
+				icon.SvgTexts[len(icon.SvgTexts)-1].Data += string(se)
+			case cursor.inTitleText == true:
 				icon.Titles[len(icon.Titles)-1] += string(se)
-			}
-			if cursor.inDescText == true {
+			case cursor.inDescText == true:
 				icon.Descriptions[len(icon.Descriptions)-1] += string(se)
 			}
+
 		}
 	}
 	return icon, nil
@@ -867,6 +879,7 @@ var (
 		"title":          titleF,
 		"linearGradient": linearGradientF,
 		"radialGradient": radialGradientF,
+		"text":           textF,
 	}
 
 	svgF svgFunc = func(c *IconCursor, attrs []xml.Attr) error {
