@@ -60,16 +60,17 @@ type (
 		Defs         map[string][]definition
 		SVGPaths     []SvgPath
 		Transform    rasterx.Matrix2D
+		classes      map[string]styleAttribute
 	}
 
 	// IconCursor is used while parsing SVG files
 	IconCursor struct {
 		PathCursor
-		icon                                    *SvgIcon
-		StyleStack                              []PathStyle
-		grad                                    *rasterx.Gradient
-		inTitleText, inDescText, inGrad, inDefs bool
-		currentDef                              []definition
+		icon                                                 *SvgIcon
+		StyleStack                                           []PathStyle
+		grad                                                 *rasterx.Gradient
+		inTitleText, inDescText, inGrad, inDefs, inDefsStyle bool
+		currentDef                                           []definition
 	}
 
 	// definition is used to store what's given in a def tag
@@ -77,6 +78,9 @@ type (
 		ID, Tag string
 		Attrs   []xml.Attr
 	}
+
+	// styleAttribute describes draw options, such as {"fill":"black"; "stroke":"white"}
+	styleAttribute = map[string]string
 )
 
 // DefaultStyle sets the default PathStyle to fill black, winding rule,
@@ -561,10 +565,13 @@ func (c *IconCursor) readStyleAttr(curStyle *PathStyle, k, v string) error {
 // direct fill and opacity attributes.
 func (c *IconCursor) PushStyle(attrs []xml.Attr) error {
 	var pairs []string
+	className := ""
 	for _, attr := range attrs {
 		switch strings.ToLower(attr.Name.Local) {
 		case "style":
 			pairs = append(pairs, strings.Split(attr.Value, ";")...)
+		case "class":
+			className = attr.Value
 		default:
 			pairs = append(pairs, attr.Name.Local+":"+attr.Value)
 		}
@@ -583,6 +590,7 @@ func (c *IconCursor) PushStyle(attrs []xml.Attr) error {
 			}
 		}
 	}
+	c.adaptClasses(&curStyle, className)
 	c.StyleStack = append(c.StyleStack, curStyle) // Push style onto stack
 	return nil
 }
@@ -663,6 +671,15 @@ func (c *IconCursor) readStartElement(se xml.StartElement) (err error) {
 	return
 }
 
+func (c *IconCursor) adaptClasses(pathStyle *PathStyle, className string) {
+	if className == "" || len(c.icon.classes) == 0 {
+		return
+	}
+	for k, v := range c.icon.classes[className] {
+		c.readStyleAttr(pathStyle, k, v)
+	}
+}
+
 // ReadIconStream reads the Icon from the given io.Reader
 // This only supports a sub-set of SVG, but
 // is enough to draw many icons. If errMode is provided,
@@ -675,6 +692,7 @@ func ReadIconStream(stream io.Reader, errMode ...ErrorMode) (*SvgIcon, error) {
 	if len(errMode) > 0 {
 		cursor.ErrorMode = errMode[0]
 	}
+	classInfo := ""
 	decoder := xml.NewDecoder(stream)
 	decoder.CharsetReader = charset.NewReaderLabel
 	for {
@@ -698,6 +716,9 @@ func ReadIconStream(stream io.Reader, errMode ...ErrorMode) (*SvgIcon, error) {
 			if err != nil {
 				return icon, err
 			}
+			if se.Name.Local == "style" && cursor.inDefs {
+				cursor.inDefsStyle = true
+			}
 		case xml.EndElement:
 			// pop style
 			cursor.StyleStack = cursor.StyleStack[:len(cursor.StyleStack)-1]
@@ -720,6 +741,12 @@ func ReadIconStream(stream io.Reader, errMode ...ErrorMode) (*SvgIcon, error) {
 				cursor.inDefs = false
 			case "radialGradient", "linearGradient":
 				cursor.inGrad = false
+
+			case "style":
+				if cursor.inDefsStyle {
+					icon.classes = parseClasses(classInfo)
+					cursor.inDefsStyle = false
+				}
 			}
 		case xml.CharData:
 			if cursor.inTitleText == true {
@@ -728,9 +755,63 @@ func ReadIconStream(stream io.Reader, errMode ...ErrorMode) (*SvgIcon, error) {
 			if cursor.inDescText == true {
 				icon.Descriptions[len(icon.Descriptions)-1] += string(se)
 			}
+			if cursor.inDefsStyle == true {
+				classInfo = string(se)
+			}
 		}
 	}
 	return icon, nil
+}
+
+func parseClasses(data string) map[string]styleAttribute {
+	res := map[string]styleAttribute{}
+	arr := strings.Split(data, "}")
+	for _, v := range arr {
+		v = strings.TrimSpace(v)
+		if v == "" {
+			continue
+		}
+		valueIndex := strings.Index(v, "{")
+		if valueIndex == -1 || valueIndex == len(v)-1 {
+			panic(v + "}: invalid map format in class definitions")
+		}
+		classesStr := v[:valueIndex]
+		attrStr := v[valueIndex+1:]
+		attrMap := parseAttrs(attrStr)
+		classes := strings.Split(classesStr, ",")
+		for _, class := range classes {
+			class = strings.TrimSpace(class)
+			if len(class) > 0 && class[0] == '.' {
+				class = class[1:]
+			}
+			for attrKey, attrVal := range attrMap {
+				if res[class] == nil {
+					res[class] = make(styleAttribute, len(attrMap))
+				}
+				res[class][attrKey] = attrVal
+			}
+		}
+	}
+	return res
+}
+
+func parseAttrs(attrStr string) styleAttribute {
+	arr := strings.Split(attrStr, ";")
+	res := make(styleAttribute, len(arr))
+	for _, kv := range arr {
+		kv = strings.TrimSpace(kv)
+		if kv == "" {
+			continue
+		}
+		tmp := strings.SplitN(kv, ":", 2)
+		if len(tmp) != 2 {
+			panic(kv + ": invalid attribute format")
+		}
+		k := strings.TrimSpace(tmp[0])
+		v := strings.TrimSpace(tmp[1])
+		res[k] = v
+	}
+	return res
 }
 
 // ReadIcon reads the Icon from the named file
