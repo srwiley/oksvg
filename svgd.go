@@ -744,7 +744,10 @@ func ReadIconStream(stream io.Reader, errMode ...ErrorMode) (*SvgIcon, error) {
 
 			case "style":
 				if cursor.inDefsStyle {
-					icon.classes = parseClasses(classInfo)
+					icon.classes, err = parseClasses(classInfo)
+					if err != nil {
+						return icon, err
+					}
 					cursor.inDefsStyle = false
 				}
 			}
@@ -763,7 +766,7 @@ func ReadIconStream(stream io.Reader, errMode ...ErrorMode) (*SvgIcon, error) {
 	return icon, nil
 }
 
-func parseClasses(data string) map[string]styleAttribute {
+func parseClasses(data string) (map[string]styleAttribute, error) {
 	res := map[string]styleAttribute{}
 	arr := strings.Split(data, "}")
 	for _, v := range arr {
@@ -773,11 +776,14 @@ func parseClasses(data string) map[string]styleAttribute {
 		}
 		valueIndex := strings.Index(v, "{")
 		if valueIndex == -1 || valueIndex == len(v)-1 {
-			panic(v + "}: invalid map format in class definitions")
+			return res, errors.New(v + "}: invalid map format in class definitions")
 		}
 		classesStr := v[:valueIndex]
 		attrStr := v[valueIndex+1:]
-		attrMap := parseAttrs(attrStr)
+		attrMap, err := parseAttrs(attrStr)
+		if err != nil {
+			return res, err
+		}
 		classes := strings.Split(classesStr, ",")
 		for _, class := range classes {
 			class = strings.TrimSpace(class)
@@ -792,10 +798,10 @@ func parseClasses(data string) map[string]styleAttribute {
 			}
 		}
 	}
-	return res
+	return res, nil
 }
 
-func parseAttrs(attrStr string) styleAttribute {
+func parseAttrs(attrStr string) (styleAttribute, error) {
 	arr := strings.Split(attrStr, ";")
 	res := make(styleAttribute, len(arr))
 	for _, kv := range arr {
@@ -805,13 +811,13 @@ func parseAttrs(attrStr string) styleAttribute {
 		}
 		tmp := strings.SplitN(kv, ":", 2)
 		if len(tmp) != 2 {
-			panic(kv + ": invalid attribute format")
+			return res, errors.New(kv + ": invalid attribute format")
 		}
 		k := strings.TrimSpace(tmp[0])
 		v := strings.TrimSpace(tmp[1])
 		res[k] = v
 	}
-	return res
+	return res, nil
 }
 
 // ReadIcon reads the Icon from the named file

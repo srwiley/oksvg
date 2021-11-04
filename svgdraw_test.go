@@ -198,6 +198,17 @@ func TestStrokeIcons(t *testing.T) {
 
 func TestClassesIcon(t *testing.T) {
 	SaveIcon(t, "testdata/TestClasses.svg")
+
+	// Test error handling in parseClasses and parseAttrs
+	_, errSvg := ReadIcon("testdata/TestClasses_bad1.svg", WarnErrorMode)
+	if errSvg == nil {
+		t.Error("failed to catch class defs error")
+	}
+	_, errSvg = ReadIcon("testdata/TestClasses_bad2.svg", WarnErrorMode)
+	if errSvg == nil {
+		t.Error("failed to catch attribute format error")
+	}
+
 }
 
 func TestHSL(t *testing.T) {
