@@ -196,6 +196,10 @@ func TestStrokeIcons(t *testing.T) {
 	}
 }
 
+func TestClassesIcon(t *testing.T) {
+	SaveIcon(t, "testdata/TestClasses.svg")
+}
+
 func TestHSL(t *testing.T) {
 	c, err := ParseSVGColor("hsl(198, 47%, 65%)")
 	if err != nil {

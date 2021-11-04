@@ -1,0 +1,14 @@
+<!--<?xml version="1.0" encoding="utf-8"?>-->
+
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 361.75 332.99">
+    <defs>
+        <style>
+            .cls-1,.cls-2{fill:white;}.cls-3{fill:orange;}
+        </style>
+    </defs>
+    <rect class="cls-1" x="0" y="0" width="300" height="200"/>
+    <circle class="cls-3" cx="174.81" cy="70.32" r="14.03"/>
+    <circle class="cls-2" cx="182.12" cy="66.88" r="3.15"/>
+    <circle class="cls-3" cx="243.17" cy="58.02" r="14.03"/>
+    <circle class="cls-2" cx="250.48" cy="54.57" r="3.15"/>
+</svg>
