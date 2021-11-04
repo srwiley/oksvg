@@ -70,7 +70,7 @@ func TestTransform(t *testing.T) {
 	icon.SetTarget(float64(w), float64(0), float64(w), float64(h)*.5)
 	icon.Draw(raster, 1.0)
 
-	err := SaveToPngFile(fmt.Sprintf("testdata/transform.png"), img)
+	err := SaveToPngFile("testdata/transform.png", img)
 	if err != nil {
 		t.Error(err)
 	}

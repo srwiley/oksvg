@@ -34,10 +34,9 @@ type (
 )
 
 var (
-	errParamMismatch  = errors.New("Param mismatch")
-	errCommandUnknown = errors.New("Unknown command")
+	errParamMismatch  = errors.New("param mismatch")
+	errCommandUnknown = errors.New("unknown command")
 	errZeroLengthID   = errors.New("zero length id")
-	errMissingID      = errors.New("cannot find id")
 )
 
 const (
@@ -89,7 +88,7 @@ func (c *PathCursor) ReadFloat(numStr string) error {
 	isFirst := true
 	for i, n := range numStr {
 		if n == '.' {
-			if isFirst == true {
+			if isFirst {
 				isFirst = false
 				continue
 			}
@@ -116,7 +115,7 @@ func (c *PathCursor) GetPoints(dataPoints string) error {
 	c.points = c.points[0:0]
 	lr := ' '
 	for i, r := range dataPoints {
-		if unicode.IsNumber(r) == false && r != '.' && !(r == '-' && lr == 'e') && r != 'e' {
+		if !unicode.IsNumber(r) && r != '.' && !(r == '-' && lr == 'e') && r != 'e' {
 			if lastIndex != -1 {
 				if err := c.ReadFloat(dataPoints[lastIndex:i]); err != nil {
 					return err
@@ -133,7 +132,7 @@ func (c *PathCursor) GetPoints(dataPoints string) error {
 		lr = r
 	}
 	if lastIndex != -1 && lastIndex != len(dataPoints) {
-		if err := c.ReadFloat(dataPoints[lastIndex:len(dataPoints)]); err != nil {
+		if err := c.ReadFloat(dataPoints[lastIndex:]); err != nil {
 			return err
 		}
 	}

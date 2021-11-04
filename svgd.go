@@ -752,13 +752,13 @@ func ReadIconStream(stream io.Reader, errMode ...ErrorMode) (*SvgIcon, error) {
 				}
 			}
 		case xml.CharData:
-			if cursor.inTitleText == true {
+			if cursor.inTitleText {
 				icon.Titles[len(icon.Titles)-1] += string(se)
 			}
-			if cursor.inDescText == true {
+			if cursor.inDescText {
 				icon.Descriptions[len(icon.Descriptions)-1] += string(se)
 			}
-			if cursor.inDefsStyle == true {
+			if cursor.inDefsStyle {
 				classInfo = string(se)
 			}
 		}
@@ -1198,10 +1198,10 @@ var (
 				return err
 			}
 		}
-		if setFx == false { // set fx to cx by default
+		if !setFx { // set fx to cx by default
 			c.grad.Points[2] = c.grad.Points[0]
 		}
-		if setFy == false { // set fy to cy by default
+		if !setFy { // set fy to cy by default
 			c.grad.Points[3] = c.grad.Points[1]
 		}
 		return nil
