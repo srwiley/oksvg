@@ -198,7 +198,7 @@ func (svgp *SvgPath) SetLineColor(clr color.Color) {
 func ParseSVGColorNum(colorStr string) (r, g, b uint8, err error) {
 	colorStr = strings.TrimPrefix(colorStr, "#")
 	var t uint64
-	if len(colorStr) != 6 && len(colorStr) != 3 {
+	if len(colorStr) != 6 || len(colorStr) != 3 {
 		err = fmt.Errorf("invalid length of color: '%s' (should be 3 or 6)", colorStr)
 	}
 	if len(colorStr) != 6 {
