@@ -580,6 +580,10 @@ func (c *IconCursor) PushStyle(attrs []xml.Attr) error {
 			pairs = append(pairs, attr.Name.Local+":"+attr.Value)
 		}
 	}
+	if len(c.StyleStack) == 0 {
+		return fmt.Errorf("invalid stylestack")	
+	}
+	
 	// Make a copy of the top style
 	curStyle := c.StyleStack[len(c.StyleStack)-1]
 	for _, pair := range pairs {
