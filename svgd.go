@@ -200,6 +200,7 @@ func ParseSVGColorNum(colorStr string) (r, g, b uint8, err error) {
 	var t uint64
 	if len(colorStr) != 6 || len(colorStr) != 3 {
 		err = fmt.Errorf("invalid length of color: '%s' (should be 3 or 6)", colorStr)
+		return
 	}
 	if len(colorStr) != 6 {
 		// SVG specs say duplicate characters in case of 3 digit hex number
