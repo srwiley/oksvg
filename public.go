@@ -1,10 +1,12 @@
 package oksvg
 
 import (
+	"bytes"
 	"encoding/xml"
 	"fmt"
 	"image/color"
 	"io"
+	"io/ioutil"
 	"math"
 	"os"
 	"strconv"
@@ -98,6 +100,28 @@ func ReadIconStream(stream io.Reader, errMode ...ErrorMode) (*SvgIcon, error) {
 			}
 		}
 	}
+	return icon, nil
+}
+
+// ReadReplacingCurrentColor replaces currentColor value with specified value and loads SvgIcon as ReadIconStream do.
+// currentColor value should be valid hex, rgb or named color value.
+func ReadReplacingCurrentColor(stream io.Reader, currentColor string, errMode ...ErrorMode) (icon *SvgIcon, err error) {
+	var (
+		data []byte
+	)
+
+	if data, err = ioutil.ReadAll(stream); err != nil {
+		return nil, fmt.Errorf("%w: read data: %v", errParamMismatch, err)
+	}
+
+	if currentColor != "" && strings.Contains(string(data), "currentColor") {
+		data = []byte(strings.ReplaceAll(string(data), "currentColor", currentColor))
+	}
+
+	if icon, err = ReadIconStream(bytes.NewBuffer(data), errMode...); err != nil {
+		return nil, fmt.Errorf("%w: load: %v", errParamMismatch, err)
+	}
+
 	return icon, nil
 }
 
