@@ -196,6 +196,14 @@ func TestStrokeIcons(t *testing.T) {
 	}
 }
 
+func TestBadColor(t *testing.T) {
+	// Test error handling in parseClasses and parseAttrs
+	_, errSvg := ReadIcon("testdata/BadColor.svg", WarnErrorMode)
+	if errSvg == nil {
+		t.Error("failed to catch class defs error")
+	}
+}
+
 func TestClassesIcon(t *testing.T) {
 	SaveIcon(t, "testdata/TestClasses.svg")
 

@@ -198,8 +198,13 @@ func (svgp *SvgPath) SetLineColor(clr color.Color) {
 func ParseSVGColorNum(colorStr string) (r, g, b uint8, err error) {
 	colorStr = strings.TrimPrefix(colorStr, "#")
 	var t uint64
-	if len(colorStr) != 6 {
-		// SVG specs say duplicate characters in case of 3 digit hex number
+	// This error check is thanks to githhub's mauritsderuiter95 identification of the a potential panic.
+	if len(colorStr) != 6 { // This is either a 3 character color or an invalid format
+		if len(colorStr) != 3 {
+			err = fmt.Errorf("color string %s is not length 3 or 6 as required by SVG specification",
+				colorStr)
+			return
+		}
 		colorStr = string([]byte{colorStr[0], colorStr[0],
 			colorStr[1], colorStr[1], colorStr[2], colorStr[2]})
 	}
