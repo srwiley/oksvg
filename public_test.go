@@ -4,12 +4,11 @@ package oksvg_test
 
 import (
 	"image"
-
 	"testing"
 
 	. "github.com/srwiley/oksvg"
 	. "github.com/srwiley/rasterx"
-	//. "github.com/srwiley/scanFT"
+	// . "github.com/srwiley/scanFT"
 )
 
 func ReadIconSet(folder string, paths []string) (icons []*SvgIcon) {
@@ -34,9 +33,9 @@ func BenchmarkLandscapeIcons(b *testing.B) {
 		scannerGV = NewScannerGV(w, h, img, img.Bounds())
 		raster    = NewDasher(w, h, scannerGV)
 
-	//	painter   = NewRGBAPainter(img)
-	//	scannerFT = NewScannerFT(w, h, painter)
-	//	raster    = NewDasher(w, h, scannerFT)
+		//	painter   = NewRGBAPainter(img)
+		//	scannerFT = NewScannerFT(w, h, painter)
+		//	raster    = NewDasher(w, h, scannerFT)
 	)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -70,9 +69,9 @@ func BenchmarkSportsIcons(b *testing.B) {
 		scannerGV2  = NewScannerGV(w2, h2, img2, image.Rect(0, 0, w2, h2))
 		raster2     = NewDasher(w2, h2, scannerGV2)
 
-	//	painter2   = NewRGBAPainter(img2)
-	//	scannerFT2 = NewScannerFT(w2, h2, painter2)
-	//	raster2    = NewDasher(w2, h2, scannerFT2)
+		//	painter2   = NewRGBAPainter(img2)
+		//	scannerFT2 = NewScannerFT(w2, h2, painter2)
+		//	raster2    = NewDasher(w2, h2, scannerFT2)
 	)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
