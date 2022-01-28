@@ -1,3 +1,8 @@
+// Copyright 2017 The oksvg Authors. All rights reserved.
+// created: 2/12/2017 by S.R.Wiley
+//
+// utils.go implements translation of an SVG2.0 path into a rasterx Path.
+
 package oksvg
 
 import (
