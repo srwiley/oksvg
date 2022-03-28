@@ -19,11 +19,11 @@ import (
 // IconCursor is used while parsing SVG files.
 type IconCursor struct {
 	PathCursor
-	icon                                                 *SvgIcon
-	StyleStack                                           []PathStyle
-	grad                                                 *rasterx.Gradient
-	inTitleText, inDescText, inGrad, inDefs, inDefsStyle bool
-	currentDef                                           []definition
+	icon                                                         *SvgIcon
+	StyleStack                                                   []PathStyle
+	grad                                                         *rasterx.Gradient
+	inTitleText, inDescText, inGrad, inDefs, inText, inDefsStyle bool
+	currentDef                                                   []definition
 }
 
 // ReadGradURL reads an SVG format gradient url

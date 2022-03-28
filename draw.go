@@ -35,6 +35,7 @@ var (
 		"title":          titleF,
 		"linearGradient": linearGradientF,
 		"radialGradient": radialGradientF,
+		"text":           textF,
 	}
 
 	svgF svgFunc = func(c *IconCursor, attrs []xml.Attr) error {
