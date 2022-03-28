@@ -83,7 +83,8 @@ func ReadIconStream(stream io.Reader, errMode ...ErrorMode) (*SvgIcon, error) {
 				cursor.inDefs = false
 			case "radialGradient", "linearGradient":
 				cursor.inGrad = false
-
+			case "text":
+				cursor.inText = false
 			case "style":
 				if cursor.inDefsStyle {
 					icon.classes, err = parseClasses(classInfo)
@@ -94,6 +95,9 @@ func ReadIconStream(stream io.Reader, errMode ...ErrorMode) (*SvgIcon, error) {
 				}
 			}
 		case xml.CharData:
+			if cursor.inText {
+				icon.SvgTexts[len(icon.SvgTexts)-1].Data += string(se)
+			}
 			if cursor.inTitleText {
 				icon.Titles[len(icon.Titles)-1] += string(se)
 			}

@@ -7,6 +7,7 @@ package oksvg
 
 import (
 	"github.com/srwiley/rasterx"
+	"image"
 )
 
 // SvgIcon holds data from parsed SVGs.
@@ -17,6 +18,7 @@ type SvgIcon struct {
 	Grads        map[string]*rasterx.Gradient
 	Defs         map[string][]definition
 	SVGPaths     []SvgPath
+	SvgTexts     []SvgText
 	Transform    rasterx.Matrix2D
 	classes      map[string]styleAttribute
 }
@@ -26,6 +28,13 @@ type SvgIcon struct {
 func (s *SvgIcon) Draw(r *rasterx.Dasher, opacity float64) {
 	for _, svgp := range s.SVGPaths {
 		svgp.DrawTransformed(r, opacity, s.Transform)
+	}
+}
+
+// DrawTexts calls draw function for each text
+func (s *SvgIcon) DrawTexts(img *image.RGBA, opacity float64) {
+	for _, svgt := range s.SvgTexts {
+		svgt.DrawTransformed(img, opacity, s.Transform)
 	}
 }
 
