@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	. "github.com/srwiley/oksvg"
+	. "github.com/raykov/oksvg"
 	. "github.com/srwiley/rasterx"
 	//"github.com/srwiley/go/scanFT"
 )
@@ -94,6 +94,7 @@ func DrawIcon(t *testing.T, iconPath string) image.Image {
 	scannerGV := NewScannerGV(w, h, img, img.Bounds())
 	raster := NewDasher(w, h, scannerGV)
 	icon.Draw(raster, 1.0)
+	icon.DrawTexts(img, 1.0)
 	return img
 }
 
@@ -230,5 +231,17 @@ func TestHSL(t *testing.T) {
 	if rgb.R != 124 || rgb.G != 183 || rgb.B != 208 || rgb.A != 255 {
 		t.Errorf("Invalid conversion: rgba(%d, %d, %d, %d)", rgb.R, rgb.G, rgb.B, rgb.A)
 		return
+	}
+}
+
+func TestText(t *testing.T) {
+	for _, p := range []string{
+		"TestText.svg",
+	} {
+		_, errSvg := ReadIcon("testdata/"+p, WarnErrorMode)
+		if errSvg != nil {
+			t.Error(errSvg)
+		}
+		SaveIcon(t, "testdata/"+p)
 	}
 }

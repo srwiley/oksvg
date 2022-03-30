@@ -34,7 +34,7 @@ func (s *SvgIcon) Draw(r *rasterx.Dasher, opacity float64) {
 // DrawTexts calls draw function for each text
 func (s *SvgIcon) DrawTexts(img *image.RGBA, opacity float64) {
 	for _, svgt := range s.SvgTexts {
-		svgt.DrawTransformed(img, opacity, s.Transform)
+		svgt.DrawTransformed(img, opacity, s.Transform, s.classes)
 	}
 }
 
