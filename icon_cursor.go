@@ -8,6 +8,7 @@ package oksvg
 import (
 	"encoding/xml"
 	"errors"
+	"fmt"
 	"image/color"
 	"log"
 	"math"
@@ -344,14 +345,19 @@ func (c *IconCursor) readStartElement(se xml.StartElement) (err error) {
 	df, ok := drawFuncs[se.Name.Local]
 	if !ok {
 		errStr := "Cannot process svg element " + se.Name.Local
-		if c.ErrorMode == StrictErrorMode {
+		if c.returnError(errStr) {
 			return errors.New(errStr)
-		} else if c.ErrorMode == WarnErrorMode {
-			log.Println(errStr)
 		}
 		return nil
 	}
 	err = df(c, se.Attr)
+	if err != nil {
+		e := fmt.Sprintf("error during processing svg element %s: %s", se.Name.Local, err.Error())
+		if c.returnError(e) {
+			err = errors.New(e)
+		}
+		err = nil
+	}
 
 	if len(c.Path) > 0 {
 		//The cursor parsed a path from the xml element
@@ -371,4 +377,15 @@ func (c *IconCursor) adaptClasses(pathStyle *PathStyle, className string) {
 	for k, v := range c.icon.classes[className] {
 		c.readStyleAttr(pathStyle, k, v)
 	}
+}
+
+func (c *IconCursor) returnError(errMsg string) bool {
+	if c.ErrorMode == StrictErrorMode {
+		return true
+	}
+	if c.ErrorMode == WarnErrorMode {
+		log.Println(errMsg)
+	}
+
+	return false
 }
