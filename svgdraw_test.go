@@ -175,7 +175,7 @@ func TestLandscapeIcons(t *testing.T) {
 func TestTestIcons(t *testing.T) {
 	for _, p := range []string{
 		"astronaut", "jupiter", "lander", "school-bus", "telescope", "content-cut-light", "defs",
-		"24px"} {
+		"24px", "badelement"} {
 		SaveIcon(t, "testdata/testIcons/"+p+".svg")
 	}
 }
