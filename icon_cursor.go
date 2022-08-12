@@ -342,6 +342,9 @@ func (c *IconCursor) readStartElement(se xml.StartElement) (err error) {
 		})
 		return nil
 	}
+	if se.Name.Local == "style" {
+		return nil
+	}
 	df, ok := drawFuncs[se.Name.Local]
 	if !ok {
 		errStr := "Cannot process svg element " + se.Name.Local
