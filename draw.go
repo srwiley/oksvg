@@ -32,6 +32,7 @@ var (
 		"path":           pathF,
 		"desc":           descF,
 		"defs":           defsF,
+		"style":          styleF,
 		"title":          titleF,
 		"linearGradient": linearGradientF,
 		"radialGradient": radialGradientF,
@@ -212,6 +213,10 @@ var (
 	}
 	defsF svgFunc = func(c *IconCursor, attrs []xml.Attr) error {
 		c.inDefs = true
+		return nil
+	}
+	styleF svgFunc = func(c *IconCursor, attrs []xml.Attr) error {
+		c.inDefsStyle = true
 		return nil
 	}
 	linearGradientF svgFunc = func(c *IconCursor, attrs []xml.Attr) error {
