@@ -232,3 +232,46 @@ func TestHSL(t *testing.T) {
 		return
 	}
 }
+
+func TestSvgIcon_Draw(t *testing.T) {
+	svgIcon, err := ReadIcon("./testdata/Testsogouicon.svg", WarnErrorMode)
+	if err != nil {
+		t.Log(err)
+		t.FailNow()
+	}
+	t.Log(svgIcon)
+}
+
+func TestSvgIcon_DecodePng(t *testing.T) {
+	tests := []struct {
+		name    string
+		picName string
+	}{
+		{name: "draw1", picName: "Testsogouicon"},
+		{name: "draw2", picName: "TestCarLite"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			//读取svg图片
+			icon, errSvg := ReadIcon(fmt.Sprintf("./testdata/testIcons/%s.svg", test.picName), WarnErrorMode)
+			if errSvg != nil {
+				t.Log(errSvg)
+				t.FailNow()
+			}
+			//定义长宽
+			w, h := int(icon.ViewBox.W), int(icon.ViewBox.H)
+			img := image.NewRGBA(image.Rect(0, 0, w, h))
+
+			scannerGV := NewScannerGV(w, h, img, img.Bounds())
+			raster := NewDasher(w, h, scannerGV)
+			//绘制图片
+			icon.Draw(raster, 1.0)
+			//保存图片
+			err := SaveToPngFile(fmt.Sprintf("./testdata/testIcons/%s.png", test.picName), img)
+			if err != nil {
+				panic(err)
+			}
+		})
+	}
+
+}
