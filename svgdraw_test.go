@@ -204,6 +204,14 @@ func TestBadColor(t *testing.T) {
 	}
 }
 
+func TestTopLevelStyle(t *testing.T) {
+	// Test that a top level style tag without enclosing defs is supported
+	_, errSvg := ReadIcon("testdata/TopLevelStyle.svg", StrictErrorMode)
+	if errSvg != nil {
+		t.Error("failed to support top level style tag")
+	}
+}
+
 func TestClassesIcon(t *testing.T) {
 	SaveIcon(t, "testdata/TestClasses.svg")
 
