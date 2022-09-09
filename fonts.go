@@ -15,9 +15,12 @@ import (
 
 type (
 	Ttx struct {
-		GlyphTable map[string]Glyph
-		CodeTable  map[uint16]string
-		KernTable  map[string]int16
+		Created, Modified      string
+		MaxX, MinX, MaxY, MinY int16
+		UnitsPerEm             int16
+		GlyphTable             map[string]Glyph
+		CodeTable              map[uint16]string
+		KernTable              map[string]int16
 	}
 
 	Glyph struct {
@@ -26,7 +29,6 @@ type (
 		Width, Lsb, Height, Tsb int16
 		Code                    uint16
 		Contours                []Contour
-		Paths                   []rasterx.Path
 	}
 
 	Contour []CPoint
@@ -42,31 +44,21 @@ type (
 	}
 )
 
-func parseGlyphAttrs(attrs []xml.Attr) (g Glyph, e error) {
-	for _, a := range attrs {
-		str := strings.ToLower(a.Name.Local)
-		if str == "name" {
-			g.Name = a.Value
-			continue
-		}
-		for _, v := range [8]struct {
-			name string
-			targ *int16
-		}{
-			{"xmin", &g.MinX}, {"ymin", &g.MinY},
-			{"xmax", &g.MaxX}, {"ymax", &g.MaxY},
-			{"width", &g.Width}, {"lsb", &g.Lsb},
-			{"height", &g.Height}, {"tsb", &g.Tsb},
-		} {
-			if v.name == str {
-				i, err := strconv.Atoi(a.Value)
-				if err != nil {
-					return g, err
-				}
-				*v.targ = int16(i)
-			}
+func GetAttr(id string, attr []xml.Attr) (v string) {
+	for _, a := range attr {
+		if a.Name.Local == "value" {
+			return a.Value
 		}
 	}
+	return
+}
+
+func SetInt16(id string, attr []xml.Attr, t *int16) (e error) {
+	i, err := strconv.Atoi(GetAttr(id, attr))
+	if err != nil {
+		return err
+	}
+	*t = int16(i)
 	return
 }
 
@@ -77,6 +69,7 @@ func ParseTTX(stream io.Reader) (ttx Ttx, err error) {
 	// These are the parser states used by this state-based design pattern parser
 	const (
 		inNothing = byte(iota)
+		inHead
 		inHmtx
 		inVmtx
 		inGlyph
@@ -95,9 +88,11 @@ func ParseTTX(stream io.Reader) (ttx Ttx, err error) {
 	var components = make(map[string][]component)
 
 	for {
-		t, err := decoder.Token()
+		var t xml.Token
+		t, err = decoder.Token()
 		if err != nil {
 			if err == io.EOF {
+				err = nil
 				break
 			}
 			return ttx, err
@@ -120,6 +115,40 @@ func ParseTTX(stream io.Reader) (ttx Ttx, err error) {
 					g, err = parseGlyphAttrs(se.Attr)
 					if err != nil {
 						return ttx, err
+					}
+				case "head":
+					state = inHead
+				}
+			case inHead:
+				switch se.Name.Local {
+				case "created":
+					ttx.Created = GetAttr("value", se.Attr)
+				case "modified":
+					ttx.Modified = GetAttr("value", se.Attr)
+				case "unitsPerEm":
+					err = SetInt16("value", se.Attr, &ttx.UnitsPerEm)
+					if err != nil {
+						return
+					}
+				case "xMin":
+					err = SetInt16("value", se.Attr, &ttx.MinX)
+					if err != nil {
+						return
+					}
+				case "xMax":
+					err = SetInt16("value", se.Attr, &ttx.MaxX)
+					if err != nil {
+						return
+					}
+				case "yMax":
+					err = SetInt16("value", se.Attr, &ttx.MaxY)
+					if err != nil {
+						return
+					}
+				case "yMin":
+					err = SetInt16("value", se.Attr, &ttx.MinY)
+					if err != nil {
+						return
 					}
 				}
 			case inHmtx:
@@ -219,6 +248,10 @@ func ParseTTX(stream io.Reader) (ttx Ttx, err error) {
 			}
 		case xml.EndElement:
 			switch state {
+			case inHead:
+				if se.Name.Local == "head" {
+					state = inNothing
+				}
 			case inHmtx:
 				if se.Name.Local == "hmtx" {
 					state = inNothing
@@ -249,7 +282,6 @@ func ParseTTX(stream io.Reader) (ttx Ttx, err error) {
 				if se.Name.Local == "contour" {
 					state = inGlyph
 					g.Contours = append(g.Contours, contour)
-					g.Paths = append(g.Paths, contour.contourToPath(0, 0))
 				}
 			}
 		case xml.CharData: // Actually not used for this format
@@ -281,6 +313,41 @@ func ParseTTX(stream io.Reader) (ttx Ttx, err error) {
 		g.Code = k
 		ttx.GlyphTable[v] = g
 	}
+	// Remove .notdefs
+	for k := range ttx.GlyphTable {
+		if len(k) >= 7 && k[:7] == ".notdef" {
+			delete(ttx.GlyphTable, k)
+		}
+	}
+	return
+}
+
+func parseGlyphAttrs(attrs []xml.Attr) (g Glyph, e error) {
+	for _, a := range attrs {
+		str := strings.ToLower(a.Name.Local)
+		if str == "name" {
+			g.Name = a.Value
+			continue
+		}
+		for _, v := range [8]struct {
+			name string
+			targ *int16
+		}{
+			{"xmin", &g.MinX}, {"ymin", &g.MinY},
+			{"xmax", &g.MaxX}, {"ymax", &g.MaxY},
+			{"width", &g.Width}, {"lsb", &g.Lsb},
+			{"height", &g.Height}, {"tsb", &g.Tsb},
+		} {
+			if v.name == str {
+				i, err := strconv.Atoi(a.Value)
+				if err != nil {
+					return g, err
+				}
+				*v.targ = int16(i)
+				break
+			}
+		}
+	}
 	return
 }
 
@@ -311,7 +378,6 @@ func (g *Glyph) addComponents(gc Glyph, x, y int16) {
 			ct = append(ct, CPoint{p.X + x, p.Y + y, p.On})
 		}
 		g.Contours = append(g.Contours, ct)
-		g.Paths = append(g.Paths, ct.contourToPath(0, 0))
 	}
 }
 
@@ -321,15 +387,70 @@ func (g *Glyph) SaveAsSVG(filename string) (err error) {
 		return errf
 	}
 	defer fout.Close()
-	fmt.Fprintf(fout, "<svg width=\"8cm\" height=\"10cm\" viewBox=\"%d %d %d %d\" ",
+	fmt.Fprintf(fout, "<svg width=\"2cm\" height=\"2cm\" viewBox=\"%d %d %d %d\" ",
 		g.MinX, -g.MaxY, g.MaxX-g.MinX, g.MaxY-g.MinY)
 	fmt.Fprintf(fout, "xmlns=\"http://www.w3.org/2000/svg\" version=\"1.1\">\n")
 	fmt.Fprintf(fout, "<title>ttx letter %s</title>", g.Name)
 	fmt.Fprintf(fout, "<path d=\"")
-	for _, p := range g.Paths {
-		fmt.Fprintf(fout, "%s", p.ToSVGPath())
+	for _, p := range g.Contours {
+		fmt.Fprintf(fout, "%s", p.contourToPath(0, 0).ToSVGPath())
 	}
 	fmt.Fprintf(fout, "\" fill = \"black\"  />\n</svg>\n")
+	return
+}
+
+func SaveAsSVG(filename string, p []rasterx.Path) (err error) {
+	fout, errf := os.Create(filename)
+	if errf != nil {
+		return errf
+	}
+	defer fout.Close()
+	fmt.Fprintf(fout, "<svg width=\"15cm\" height=\"8cm\" viewBox=\"%d %d %d %d\" ",
+		//g.MinX, -g.MaxY, g.MaxX-g.MinX, g.MaxY-g.MinY)
+		-400, -700, 8000, 1000)
+	fmt.Fprintf(fout, "xmlns=\"http://www.w3.org/2000/svg\" version=\"1.1\">\n")
+	fmt.Fprintf(fout, "<title>ttx letter %s</title>", "hello")
+	fmt.Fprintf(fout, "<circle cx=\"0\" cy=\"0\" r=\"35\" fill = \"red\"/>\n")
+	fmt.Fprintf(fout, "<path d=\"")
+	for _, pth := range p {
+		fmt.Fprintf(fout, "%s", pth.ToSVGPath())
+	}
+	fmt.Fprintf(fout, "\" fill = \"black\"  />\n</svg>\n")
+	return
+}
+
+func (ttx *Ttx) GlyphForRune(tk rune) (g Glyph, ok bool) {
+	var name string
+	name, ok = ttx.CodeTable[uint16(tk)]
+	if !ok {
+		return
+	}
+	g, ok = ttx.GlyphTable[name]
+	return
+}
+
+func (ttx *Ttx) StringToPaths(text string, useKerning bool) (p []rasterx.Path, advance, consumed int) {
+	px, py := int16(0), int16(0)
+	var lastName string
+	for _, tk := range text {
+		g, ok := ttx.GlyphForRune(tk)
+		if !ok {
+			continue
+		}
+		if len(lastName) > 0 && useKerning {
+			kern, ok := ttx.KernTable[lastName+":"+g.Name]
+			if ok {
+				px += kern
+			}
+		}
+		consumed++
+		for _, c := range g.Contours {
+			p = append(p, c.contourToPath(px, py))
+		}
+		px += g.Width
+		lastName = g.Name
+	}
+	advance = int(px)
 	return
 }
 
@@ -345,41 +466,56 @@ func (c Contour) contourToPath(x, y int16) (p rasterx.Path) {
 	// if !c[0].On {
 	// 	fmt.Println("Off curve first point")
 	// }
-	p.Start(fixed.Point26_6{X: fixed.Int26_6(lastPt.X) * 64,
-		Y: fixed.Int26_6(-lastPt.Y) * 64})
+	p.Start(
+		fixed.Point26_6{
+			X: fixed.Int26_6(lastPt.X) * 64,
+			Y: fixed.Int26_6(-lastPt.Y) * 64})
 	for i := 1; i < len(c); i++ {
 		pt := c[i]
 		pt.X += x
 		pt.Y += y
 		if pt.On {
 			if lastPt.On {
-				p.Line(fixed.Point26_6{X: fixed.Int26_6(pt.X) * 64,
-					Y: fixed.Int26_6(-pt.Y) * 64})
+				p.Line(
+					fixed.Point26_6{
+						X: fixed.Int26_6(pt.X) * 64,
+						Y: fixed.Int26_6(-pt.Y) * 64})
 			} else {
-				p.QuadBezier(fixed.Point26_6{X: fixed.Int26_6(lastPt.X) * 64,
-					Y: fixed.Int26_6(-lastPt.Y) * 64},
-					fixed.Point26_6{X: fixed.Int26_6(pt.X) * 64,
+				p.QuadBezier(
+					fixed.Point26_6{
+						X: fixed.Int26_6(lastPt.X) * 64,
+						Y: fixed.Int26_6(-lastPt.Y) * 64},
+					fixed.Point26_6{
+						X: fixed.Int26_6(pt.X) * 64,
 						Y: fixed.Int26_6(-pt.Y) * 64})
 			}
 		} else {
 			if !lastPt.On {
 				midPt := CPoint{(pt.X + lastPt.X) / 2, (pt.Y + lastPt.Y) / 2, true}
-				p.QuadBezier(fixed.Point26_6{X: fixed.Int26_6(lastPt.X) * 64,
-					Y: fixed.Int26_6(-lastPt.Y) * 64},
-					fixed.Point26_6{X: fixed.Int26_6(midPt.X) * 64,
+				p.QuadBezier(
+					fixed.Point26_6{
+						X: fixed.Int26_6(lastPt.X) * 64,
+						Y: fixed.Int26_6(-lastPt.Y) * 64},
+					fixed.Point26_6{
+						X: fixed.Int26_6(midPt.X) * 64,
 						Y: fixed.Int26_6(-midPt.Y) * 64})
 			}
 		}
 		lastPt = pt
 	}
 	if !lastPt.On {
-		p.QuadBezier(fixed.Point26_6{X: fixed.Int26_6(lastPt.X) * 64,
-			Y: fixed.Int26_6(-lastPt.Y) * 64},
-			fixed.Point26_6{X: fixed.Int26_6(c[0].X+x) * 64,
+		p.QuadBezier(
+			fixed.Point26_6{
+				X: fixed.Int26_6(lastPt.X) * 64,
+				Y: fixed.Int26_6(-lastPt.Y) * 64},
+			fixed.Point26_6{
+				X: fixed.Int26_6(c[0].X+x) * 64,
 				Y: fixed.Int26_6(-c[0].Y+y) * 64})
 	} else {
-		p.Line(fixed.Point26_6{X: fixed.Int26_6(c[0].X+x) * 64,
-			Y: fixed.Int26_6(-c[0].Y+y) * 64})
+		p.Line(
+			fixed.Point26_6{
+				X: fixed.Int26_6(c[0].X+x) * 64,
+				Y: fixed.Int26_6(-c[0].Y+y) * 64})
 	}
 	p.Stop(true)
 	return

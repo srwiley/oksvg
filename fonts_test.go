@@ -9,7 +9,11 @@ import (
 )
 
 func TestReadTTx(t *testing.T) {
-	fs := []string{"testdata/testfonts/luximr.ttx", "testdata/testfonts/luxirr.ttx", "testdata/testfonts/luxisr.ttx"}
+	fs := []string{
+		//"testdata/testfonts/luximr.ttx",
+		//"testdata/testfonts/luxirr.ttx",
+		"testdata/testfonts/luxisr.ttx",
+	}
 	for _, fstr := range fs {
 		fmt.Println("File: ", fstr)
 		file, err := os.Open(fstr)
@@ -23,8 +27,12 @@ func TestReadTTx(t *testing.T) {
 			return
 		}
 		//fmt.Println("hmtx ", len(ttx.MtxTable))
-		fmt.Println("glyphs ", len(ttx.GlyphTable))
-		q := ttx.GlyphTable[ttx.CodeTable[uint16(0xbf)]]
+		fmt.Println("created ", ttx.Created)
+		fmt.Println("modified ", ttx.Modified)
+		fmt.Println("units per em ", ttx.UnitsPerEm)
+		fmt.Println("mins, maxs ", ttx.MinX, ttx.MinY, ttx.MaxX, ttx.MaxY)
+		//q := ttx.GlyphTable[ttx.CodeTable[uint16(0xbf)]]
+		q := ttx.GlyphTable["jcircumflex"]
 		//fmt.Println(" width ", q.Width, " ", q.MaxX-q.MinX, " ", q.Lsb, " ", q.Name)
 		//q := ttx.GlyphTable["A"]
 		//fmt.Println("q mx", q.MaxX, q.MinX, q.MaxY, q.MinY)
@@ -56,11 +64,21 @@ func TestReadTTx(t *testing.T) {
 			}
 		}
 
-		// for _, q := range ttx.GlyphTable {
-		// 	if q.Width < q.MaxX-q.MinX+q.Lsb {
-		// 		fmt.Println("advange less than width plus lsb ", q.Width, q.MaxX-q.MinX, q.Lsb, q.MaxX-q.MinX+q.Lsb, " ", q.Name)
-		// 	}
-		// }
+		p, _, cons := ttx.StringToPaths("qjovial", true)
+		fmt.Println("cons ", cons)
+		SaveAsSVG("testdata/testfonts/hello.svg", p)
+
+		for _, q := range ttx.GlyphTable {
+			if q.MinX < 0 {
+				fmt.Println("minx lt 0 ", q.MinX, q.Name)
+			}
+			if q.MinX != q.Lsb {
+				fmt.Println("minx not equal to lsb ", q.MinX, " ", q.Lsb)
+			}
+			if q.MaxY != 2033-q.Tsb {
+				fmt.Println("maxy not equal to Tsb ", q.MaxY, " ", q.Tsb, q.Name)
+			}
+		}
 
 	}
 
