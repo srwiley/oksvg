@@ -2,17 +2,83 @@ package oksvg_test
 
 import (
 	"fmt"
+	"image"
 	"os"
+	"strings"
 	"testing"
 
 	. "github.com/srwiley/oksvg"
+	. "github.com/srwiley/rasterx"
+	"golang.org/x/image/math/fixed"
 )
+
+func GetFonts(t *testing.T) (fonts []Ttx) {
+	fs := []string{
+		//"testdata/testfonts/luximr.ttx",
+		"testdata/testfonts/luxirr.ttx",
+		//"testdata/testfonts/luxisr.ttx",
+	}
+	for _, fstr := range fs {
+		fmt.Println("File: ", fstr)
+		file, err := os.Open(fstr)
+		if err != nil {
+			t.Error(err)
+		}
+		defer file.Close()
+		tx, err := ParseTTX(file)
+		if err != nil {
+			t.Error(err)
+			return
+		}
+		tx.Name = "luxirr"
+		fonts = append(fonts, tx)
+	}
+	return
+}
+
+func SaveIconF(t *testing.T, fonts []Ttx, iconPath string) {
+	img := DrawIconF(t, fonts, iconPath)
+	if img != nil {
+		p := strings.Split(iconPath, "/")
+		err := SaveToPngFile(fmt.Sprintf("testdata/%s.png", p[len(p)-1]), img)
+		if err != nil {
+			t.Error(err)
+		}
+	}
+}
+
+func DrawIconF(t *testing.T, fonts []Ttx, iconPath string) image.Image {
+	icon, errSvg := ReadIconF(iconPath, fonts, WarnErrorMode)
+	if errSvg != nil {
+		t.Error(errSvg)
+		return nil
+	}
+	w, h := int(icon.ViewBox.W), int(icon.ViewBox.H)
+	img := image.NewRGBA(image.Rect(0, 0, w, h))
+
+	// Uncomment the next three lines and comment the three after to use ScannerFT
+	//	painter := scanFT.NewRGBAPainter(img)
+	//	scannerFT := scanFT.NewScannerFT(w, h, painter)
+	//	raster := NewDasher(w, h, scannerFT)
+	//tb := img.Bounds()
+	//tb.Max.X /= 2
+	scannerGV := NewScannerGV(w, h, img, img.Bounds())
+	raster := NewDasher(w, h, scannerGV)
+	icon.Draw(raster, 1.0)
+	return img
+}
+
+func TestSVGText(t *testing.T) {
+	fonts := GetFonts(t)
+	t.Log("loaded fonts ", len(fonts))
+	SaveIconF(t, fonts, "testdata/SimpleText.svg")
+}
 
 func TestReadTTx(t *testing.T) {
 	fs := []string{
 		//"testdata/testfonts/luximr.ttx",
-		//"testdata/testfonts/luxirr.ttx",
-		"testdata/testfonts/luxisr.ttx",
+		"testdata/testfonts/luxirr.ttx",
+		//"testdata/testfonts/luxisr.ttx",
 	}
 	for _, fstr := range fs {
 		fmt.Println("File: ", fstr)
@@ -32,7 +98,7 @@ func TestReadTTx(t *testing.T) {
 		fmt.Println("units per em ", ttx.UnitsPerEm)
 		fmt.Println("mins, maxs ", ttx.MinX, ttx.MinY, ttx.MaxX, ttx.MaxY)
 		//q := ttx.GlyphTable[ttx.CodeTable[uint16(0xbf)]]
-		q := ttx.GlyphTable["jcircumflex"]
+		q := ttx.GlyphTable["o"]
 		//fmt.Println(" width ", q.Width, " ", q.MaxX-q.MinX, " ", q.Lsb, " ", q.Name)
 		//q := ttx.GlyphTable["A"]
 		//fmt.Println("q mx", q.MaxX, q.MinX, q.MaxY, q.MinY)
@@ -64,14 +130,13 @@ func TestReadTTx(t *testing.T) {
 			}
 		}
 
-		p, _, cons := ttx.StringToPaths("qjovial", true)
+		ttx.KernTable["q:j"] = int16(105)
+
+		p, _, cons := ttx.StringToPaths("qjclash", fixed.Point26_6{}, true)
 		fmt.Println("cons ", cons)
 		SaveAsSVG("testdata/testfonts/hello.svg", p)
 
 		for _, q := range ttx.GlyphTable {
-			if q.MinX < 0 {
-				fmt.Println("minx lt 0 ", q.MinX, q.Name)
-			}
 			if q.MinX != q.Lsb {
 				fmt.Println("minx not equal to lsb ", q.MinX, " ", q.Lsb)
 			}

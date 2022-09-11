@@ -34,6 +34,7 @@ var (
 		"defs":           defsF,
 		"style":          styleF,
 		"title":          titleF,
+		"text":           textF,
 		"linearGradient": linearGradientF,
 		"radialGradient": radialGradientF,
 	}
@@ -209,6 +210,11 @@ var (
 	titleF svgFunc = func(c *IconCursor, attrs []xml.Attr) error {
 		c.inTitleText = true
 		c.icon.Titles = append(c.icon.Titles, "")
+		return nil
+	}
+	textF svgFunc = func(c *IconCursor, attrs []xml.Attr) error {
+		c.inText = true
+		c.text = ""
 		return nil
 	}
 	defsF svgFunc = func(c *IconCursor, attrs []xml.Attr) error {

@@ -15,6 +15,7 @@ import (
 
 type (
 	Ttx struct {
+		Name                   string
 		Created, Modified      string
 		MaxX, MinX, MaxY, MinY int16
 		UnitsPerEm             int16
@@ -44,23 +45,16 @@ type (
 	}
 )
 
-func GetAttr(id string, attr []xml.Attr) (v string) {
-	for _, a := range attr {
-		if a.Name.Local == "value" {
-			return a.Value
-		}
-	}
-	return
-}
+// func SetInt16(id string, attr []xml.Attr, t *int16) (e error) {
+// 	i, err := strconv.Atoi(GetAttr(id, attr))
+// 	if err != nil {
+// 		return err
+// 	}
+// 	*t = int16(i)
+// 	return
+// }
 
-func SetInt16(id string, attr []xml.Attr, t *int16) (e error) {
-	i, err := strconv.Atoi(GetAttr(id, attr))
-	if err != nil {
-		return err
-	}
-	*t = int16(i)
-	return
-}
+//}
 
 // ParseTTX
 func ParseTTX(stream io.Reader) (ttx Ttx, err error) {
@@ -87,6 +81,33 @@ func ParseTTX(stream io.Reader) (ttx Ttx, err error) {
 	var contour Contour
 	var components = make(map[string][]component)
 
+	getAttrT := func(tag string, attr []xml.Attr) (v string) {
+		for _, a := range attr {
+			if a.Name.Local == "value" {
+				return a.Value
+			}
+		}
+		return
+	}
+
+	AtoI16 := func(v string) (n int16, err error) {
+		var i int
+		i, err = strconv.Atoi(v)
+		if err != nil {
+			return
+		}
+		n = int16(i)
+		return
+	}
+
+	setInt16T := func(tag string, attr []xml.Attr) (v int16, err error) {
+		return AtoI16(getAttrT(tag, attr))
+	}
+
+	setInt16 := func(attr []xml.Attr) (v int16, err error) {
+		return setInt16T("value", attr)
+	}
+
 	for {
 		var t xml.Token
 		t, err = decoder.Token()
@@ -99,6 +120,7 @@ func ParseTTX(stream io.Reader) (ttx Ttx, err error) {
 		}
 		switch se := t.(type) {
 		case xml.StartElement:
+			var i int
 			switch state {
 			case inNothing:
 				switch se.Name.Local {
@@ -113,50 +135,29 @@ func ParseTTX(stream io.Reader) (ttx Ttx, err error) {
 				case "TTGlyph":
 					state = inGlyph
 					g, err = parseGlyphAttrs(se.Attr)
-					if err != nil {
-						return ttx, err
-					}
 				case "head":
 					state = inHead
 				}
 			case inHead:
 				switch se.Name.Local {
 				case "created":
-					ttx.Created = GetAttr("value", se.Attr)
+					ttx.Created = getAttrT("value", se.Attr)
 				case "modified":
-					ttx.Modified = GetAttr("value", se.Attr)
+					ttx.Modified = getAttrT("value", se.Attr)
 				case "unitsPerEm":
-					err = SetInt16("value", se.Attr, &ttx.UnitsPerEm)
-					if err != nil {
-						return
-					}
+					ttx.UnitsPerEm, err = setInt16(se.Attr)
 				case "xMin":
-					err = SetInt16("value", se.Attr, &ttx.MinX)
-					if err != nil {
-						return
-					}
+					ttx.MinX, err = setInt16(se.Attr)
 				case "xMax":
-					err = SetInt16("value", se.Attr, &ttx.MaxX)
-					if err != nil {
-						return
-					}
+					ttx.MaxX, err = setInt16(se.Attr)
 				case "yMax":
-					err = SetInt16("value", se.Attr, &ttx.MaxY)
-					if err != nil {
-						return
-					}
+					ttx.MaxY, err = setInt16(se.Attr)
 				case "yMin":
-					err = SetInt16("value", se.Attr, &ttx.MinY)
-					if err != nil {
-						return
-					}
+					ttx.MinY, err = setInt16(se.Attr)
 				}
 			case inHmtx:
 				if se.Name.Local == "mtx" {
-					g, err := parseGlyphAttrs(se.Attr)
-					if err != nil {
-						return ttx, err
-					}
+					g, err = parseGlyphAttrs(se.Attr)
 					gt := ttx.GlyphTable[g.Name]
 					gt.Lsb = g.Lsb
 					gt.Width = g.Width
@@ -164,10 +165,7 @@ func ParseTTX(stream io.Reader) (ttx Ttx, err error) {
 				}
 			case inVmtx:
 				if se.Name.Local == "mtx" {
-					g, err := parseGlyphAttrs(se.Attr)
-					if err != nil {
-						return ttx, err
-					}
+					g, err = parseGlyphAttrs(se.Attr)
 					gt := ttx.GlyphTable[g.Name]
 					gt.Tsb = g.Tsb
 					gt.Height = g.Height
@@ -177,28 +175,21 @@ func ParseTTX(stream io.Reader) (ttx Ttx, err error) {
 				if strings.ToLower(se.Name.Local) == "contour" {
 					state = inContour
 					contour = []CPoint{} // make a new slice
-				}
-				if strings.ToLower(se.Name.Local) == "component" {
-					var c component
-					for _, a := range se.Attr {
-						switch strings.ToLower(a.Name.Local) {
-						case "x":
-							i, err := strconv.Atoi(a.Value)
-							c.x = int16(i)
-							if err != nil {
-								return ttx, err
+				} else {
+					if strings.ToLower(se.Name.Local) == "component" {
+						var c component
+						for _, a := range se.Attr {
+							switch strings.ToLower(a.Name.Local) {
+							case "x":
+								c.x, err = AtoI16(a.Value)
+							case "y":
+								c.y, err = AtoI16(a.Value)
+							case "glyphname":
+								c.name = a.Value
 							}
-						case "y":
-							i, err := strconv.Atoi(a.Value)
-							c.y = int16(i)
-							if err != nil {
-								return ttx, err
-							}
-						case "glyphname":
-							c.name = a.Value
 						}
+						components[g.Name] = append(components[g.Name], c)
 					}
-					components[g.Name] = append(components[g.Name], c)
 				}
 			case inContour:
 				if strings.ToLower(se.Name.Local) == "pt" {
@@ -208,17 +199,11 @@ func ParseTTX(stream io.Reader) (ttx Ttx, err error) {
 						case "on":
 							p.On = a.Value == "1"
 						case "x":
-							i, err := strconv.Atoi(a.Value)
+							i, err = strconv.Atoi(a.Value)
 							p.X = int16(i)
-							if err != nil {
-								return ttx, err
-							}
 						case "y":
-							i, err := strconv.Atoi(a.Value)
+							i, err = strconv.Atoi(a.Value)
 							p.Y = int16(i)
-							if err != nil {
-								return ttx, err
-							}
 						}
 					}
 					contour = append(contour, p)
@@ -234,11 +219,9 @@ func ParseTTX(stream io.Reader) (ttx Ttx, err error) {
 					for _, a := range se.Attr {
 						switch strings.ToLower(a.Name.Local) {
 						case "code":
-							i, err := strconv.ParseInt(a.Value[2:], 16, 32)
+							var i int64
+							i, err = strconv.ParseInt(a.Value[2:], 16, 32)
 							code = uint16(i)
-							if err != nil {
-								return ttx, err
-							}
 						case "name":
 							name = a.Value
 						}
@@ -284,11 +267,18 @@ func ParseTTX(stream io.Reader) (ttx Ttx, err error) {
 					g.Contours = append(g.Contours, contour)
 				}
 			}
-		case xml.CharData: // Actually not used for this format
-
+			// case xml.CharData: // Actually not used for this format
+		}
+		// Error generated by the last xml element?
+		if err != nil {
+			return ttx, err
 		}
 	}
-	// Create the compound characters
+
+	// Initialize the compound glyphs
+	// by compiling the contours in the
+	// glyphs referenced by the components
+	// into the target glyph.
 	for k, v := range components {
 		g, ok := ttx.GlyphTable[k]
 		if !ok {
@@ -393,13 +383,13 @@ func (g *Glyph) SaveAsSVG(filename string) (err error) {
 	fmt.Fprintf(fout, "<title>ttx letter %s</title>", g.Name)
 	fmt.Fprintf(fout, "<path d=\"")
 	for _, p := range g.Contours {
-		fmt.Fprintf(fout, "%s", p.contourToPath(0, 0).ToSVGPath())
+		fmt.Fprintf(fout, "%s", p.ContourToPath(fixed.Point26_6{X: 0, Y: 0}, 8).ToSVGPath())
 	}
 	fmt.Fprintf(fout, "\" fill = \"black\"  />\n</svg>\n")
 	return
 }
 
-func SaveAsSVG(filename string, p []rasterx.Path) (err error) {
+func SaveAsSVG(filename string, p rasterx.Path) (err error) {
 	fout, errf := os.Create(filename)
 	if errf != nil {
 		return errf
@@ -412,9 +402,9 @@ func SaveAsSVG(filename string, p []rasterx.Path) (err error) {
 	fmt.Fprintf(fout, "<title>ttx letter %s</title>", "hello")
 	fmt.Fprintf(fout, "<circle cx=\"0\" cy=\"0\" r=\"35\" fill = \"red\"/>\n")
 	fmt.Fprintf(fout, "<path d=\"")
-	for _, pth := range p {
-		fmt.Fprintf(fout, "%s", pth.ToSVGPath())
-	}
+	//for _, pth := range p {
+	fmt.Fprintf(fout, "%s", p.ToSVGPath())
+	//}
 	fmt.Fprintf(fout, "\" fill = \"black\"  />\n</svg>\n")
 	return
 }
@@ -429,8 +419,9 @@ func (ttx *Ttx) GlyphForRune(tk rune) (g Glyph, ok bool) {
 	return
 }
 
-func (ttx *Ttx) StringToPaths(text string, useKerning bool) (p []rasterx.Path, advance, consumed int) {
-	px, py := int16(0), int16(0)
+func (ttx *Ttx) StringToPaths(text string, origin fixed.Point26_6, useKerning bool) (p rasterx.Path, advance, consumed int) {
+	//px, py := int16(0), int16(0)
+	//adv := int16(0)
 	var lastName string
 	for _, tk := range text {
 		g, ok := ttx.GlyphForRune(tk)
@@ -440,82 +431,64 @@ func (ttx *Ttx) StringToPaths(text string, useKerning bool) (p []rasterx.Path, a
 		if len(lastName) > 0 && useKerning {
 			kern, ok := ttx.KernTable[lastName+":"+g.Name]
 			if ok {
-				px += kern
+				origin.X += fixed.Int26_6(kern) * 64
 			}
 		}
 		consumed++
 		for _, c := range g.Contours {
-			p = append(p, c.contourToPath(px, py))
+			p = append(p, c.ContourToPath(origin, 8)...)
 		}
-		px += g.Width
+		origin.X += fixed.Int26_6(g.Width) * 64
 		lastName = g.Name
 	}
-	advance = int(px)
+	advance = int(origin.X / 64)
 	return
 }
 
-// contourToPath returns a path represenation
-// of the contour.
-func (c Contour) contourToPath(x, y int16) (p rasterx.Path) {
-	if len(c) == 0 {
+// ContourToPath returns a path represenation of the contour.
+func (c Contour) ContourToPath(ori fixed.Point26_6, scale int) (p rasterx.Path) {
+
+	toFixedP := func(x, y int16) (p fixed.Point26_6) {
+		p = fixed.Point26_6{
+			X: fixed.Int26_6(int(x)*scale) + ori.X,
+			Y: fixed.Int26_6(int(y)*scale) + ori.Y}
 		return
 	}
+	if len(c) <= 1 {
+		return // Single point doth not make a glyph
+	}
 	lastPt := c[0]
-	lastPt.X += x
-	lastPt.Y += y
+	//lastPt.X += x
+	//lastPt.Y += y
 	// if !c[0].On {
 	// 	fmt.Println("Off curve first point")
 	// }
-	p.Start(
-		fixed.Point26_6{
-			X: fixed.Int26_6(lastPt.X) * 64,
-			Y: fixed.Int26_6(-lastPt.Y) * 64})
+	p.Start(toFixedP(lastPt.X, -lastPt.Y))
 	for i := 1; i < len(c); i++ {
 		pt := c[i]
-		pt.X += x
-		pt.Y += y
 		if pt.On {
 			if lastPt.On {
-				p.Line(
-					fixed.Point26_6{
-						X: fixed.Int26_6(pt.X) * 64,
-						Y: fixed.Int26_6(-pt.Y) * 64})
+				p.Line(toFixedP(pt.X, -pt.Y))
 			} else {
 				p.QuadBezier(
-					fixed.Point26_6{
-						X: fixed.Int26_6(lastPt.X) * 64,
-						Y: fixed.Int26_6(-lastPt.Y) * 64},
-					fixed.Point26_6{
-						X: fixed.Int26_6(pt.X) * 64,
-						Y: fixed.Int26_6(-pt.Y) * 64})
+					toFixedP(lastPt.X, -lastPt.Y),
+					toFixedP(pt.X, -pt.Y))
 			}
 		} else {
 			if !lastPt.On {
-				midPt := CPoint{(pt.X + lastPt.X) / 2, (pt.Y + lastPt.Y) / 2, true}
 				p.QuadBezier(
-					fixed.Point26_6{
-						X: fixed.Int26_6(lastPt.X) * 64,
-						Y: fixed.Int26_6(-lastPt.Y) * 64},
-					fixed.Point26_6{
-						X: fixed.Int26_6(midPt.X) * 64,
-						Y: fixed.Int26_6(-midPt.Y) * 64})
+					toFixedP(lastPt.X, -lastPt.Y),
+					toFixedP((pt.X+lastPt.X)/2, -(pt.Y+lastPt.Y)/2))
 			}
 		}
 		lastPt = pt
 	}
 	if !lastPt.On {
 		p.QuadBezier(
-			fixed.Point26_6{
-				X: fixed.Int26_6(lastPt.X) * 64,
-				Y: fixed.Int26_6(-lastPt.Y) * 64},
-			fixed.Point26_6{
-				X: fixed.Int26_6(c[0].X+x) * 64,
-				Y: fixed.Int26_6(-c[0].Y+y) * 64})
+			toFixedP(lastPt.X, -lastPt.Y),
+			toFixedP(c[0].X, -c[0].Y))
 	} else {
-		p.Line(
-			fixed.Point26_6{
-				X: fixed.Int26_6(c[0].X+x) * 64,
-				Y: fixed.Int26_6(-c[0].Y+y) * 64})
+		p.Line(toFixedP(c[0].X, -c[0].Y))
 	}
 	p.Stop(true)
 	return

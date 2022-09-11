@@ -19,6 +19,7 @@ import (
 
 	"github.com/srwiley/rasterx"
 	"golang.org/x/image/colornames"
+	"golang.org/x/image/math/fixed"
 	"golang.org/x/net/html/charset"
 )
 
@@ -29,8 +30,16 @@ import (
 // if it does not handle an element found in the icon file. Ignore warnings is
 // the default if no ErrorMode value is provided.
 func ReadIconStream(stream io.Reader, errMode ...ErrorMode) (*SvgIcon, error) {
+	return ReadIconStreamF(stream, nil, errMode...)
+}
+
+// ReadIconStreamF reads the Icon as does ReadIconStream,
+// except that an optional array of fonts may be included
+// If the fonts slice is nil or empty, text elements will
+// be ignored.
+func ReadIconStreamF(stream io.Reader, f []Ttx, errMode ...ErrorMode) (*SvgIcon, error) {
 	icon := &SvgIcon{Defs: make(map[string][]definition), Grads: make(map[string]*rasterx.Gradient), Transform: rasterx.Identity}
-	cursor := &IconCursor{StyleStack: []PathStyle{DefaultStyle}, icon: icon}
+	cursor := &IconCursor{StyleStack: []PathStyle{DefaultStyle}, fonts: f, icon: icon}
 	if len(errMode) > 0 {
 		cursor.ErrorMode = errMode[0]
 	}
@@ -62,8 +71,6 @@ func ReadIconStream(stream io.Reader, errMode ...ErrorMode) (*SvgIcon, error) {
 				cursor.inDefsStyle = true
 			}
 		case xml.EndElement:
-			// pop style
-			cursor.StyleStack = cursor.StyleStack[:len(cursor.StyleStack)-1]
 			switch se.Name.Local {
 			case "g":
 				if cursor.inDefs {
@@ -73,6 +80,20 @@ func ReadIconStream(stream io.Reader, errMode ...ErrorMode) (*SvgIcon, error) {
 				}
 			case "title":
 				cursor.inTitleText = false
+			case "text":
+				cursor.inText = false
+				//fmt.Printf("Read Text:'%s %d'\n", cursor.text, len(cursor.fonts))
+				if len(cursor.fonts) == 0 {
+					continue
+				}
+				if len(cursor.text) > 0 {
+					p, _, _ := cursor.fonts[0].StringToPaths(cursor.text, fixed.Point26_6{X: 50, Y: 50}, true)
+					//m := rasterx.Matrix2D{}
+
+					fmt.Println("d=", p.ToSVGPath())
+					cursor.icon.SVGPaths = append(cursor.icon.SVGPaths,
+						SvgPath{cursor.StyleStack[len(cursor.StyleStack)-1], p})
+				}
 			case "desc":
 				cursor.inDescText = false
 			case "defs":
@@ -93,9 +114,14 @@ func ReadIconStream(stream io.Reader, errMode ...ErrorMode) (*SvgIcon, error) {
 					cursor.inDefsStyle = false
 				}
 			}
+			// pop style
+			cursor.StyleStack = cursor.StyleStack[:len(cursor.StyleStack)-1]
 		case xml.CharData:
 			if cursor.inTitleText {
 				icon.Titles[len(icon.Titles)-1] += string(se)
+			}
+			if cursor.inText {
+				cursor.text += string(se)
 			}
 			if cursor.inDescText {
 				icon.Descriptions[len(icon.Descriptions)-1] += string(se)
@@ -136,12 +162,20 @@ func ReadReplacingCurrentColor(stream io.Reader, currentColor string, errMode ..
 // if it does not handle an element found in the icon file.
 // Ignore warnings is the default if no ErrorMode value is provided.
 func ReadIcon(iconFile string, errMode ...ErrorMode) (*SvgIcon, error) {
+	return ReadIconF(iconFile, nil, errMode...)
+}
+
+// ReadIconF reads the Icon as does ReadIcon,
+// except that an optional array of fonts may be included
+// If the fonts slice is nil or empty, text elements will
+// be ignored.
+func ReadIconF(iconFile string, fonts []Ttx, errMode ...ErrorMode) (*SvgIcon, error) {
 	fin, errf := os.Open(iconFile)
 	if errf != nil {
 		return nil, errf
 	}
 	defer fin.Close()
-	return ReadIconStream(fin, errMode...)
+	return ReadIconStreamF(fin, fonts, errMode...)
 }
 
 // ParseSVGColorNum reads the SFG color string e.g. #FBD9BD

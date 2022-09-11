@@ -20,11 +20,14 @@ import (
 // IconCursor is used while parsing SVG files.
 type IconCursor struct {
 	PathCursor
-	icon                                                 *SvgIcon
-	StyleStack                                           []PathStyle
-	grad                                                 *rasterx.Gradient
-	inTitleText, inDescText, inGrad, inDefs, inDefsStyle bool
-	currentDef                                           []definition
+	icon       *SvgIcon
+	StyleStack []PathStyle
+	grad       *rasterx.Gradient
+	text       string
+	fonts      []Ttx
+	currentDef []definition
+	inTitleText, inDescText, inGrad,
+	inDefs, inDefsStyle, inText bool
 }
 
 // ReadGradURL reads an SVG format gradient url
@@ -354,7 +357,7 @@ func (c *IconCursor) readStartElement(se xml.StartElement) (err error) {
 	if err != nil {
 		e := fmt.Sprintf("error during processing svg element %s: %s", se.Name.Local, err.Error())
 		if c.returnError(e) {
-			err = errors.New(e)
+			return errors.New(e)
 		}
 		err = nil
 	}
