@@ -26,6 +26,10 @@ type IconCursor struct {
 	text       string
 	fonts      []Ttx
 	currentDef []definition
+	// Text requires the attributes at the end of the
+	// element because the text is caught by xml.CharData
+	// elements.
+	textAttr [][]xml.Attr
 	inTitleText, inDescText, inGrad,
 	inDefs, inDefsStyle, inText bool
 }

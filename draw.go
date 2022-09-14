@@ -26,7 +26,7 @@ var (
 		"stop":           stopF,
 		"rect":           rectF,
 		"circle":         circleF,
-		"ellipse":        circleF, //circleF handles ellipse also
+		"ellipse":        circleF, //circleF handles ellipse
 		"polyline":       polylineF,
 		"polygon":        polygonF,
 		"path":           pathF,
@@ -215,6 +215,7 @@ var (
 	textF svgFunc = func(c *IconCursor, attrs []xml.Attr) error {
 		c.inText = true
 		c.text = ""
+		c.textAttr = append(c.textAttr, attrs)
 		return nil
 	}
 	defsF svgFunc = func(c *IconCursor, attrs []xml.Attr) error {
@@ -395,4 +396,35 @@ func init() {
 	// avoids cyclical static declaration
 	// called on package initialization
 	drawFuncs["use"] = useF
+}
+
+func (cursor *IconCursor) closeText() (err error) {
+	if len(cursor.fonts) == 0 {
+		return
+	}
+	if len(cursor.text) > 0 {
+		scale := 20.0 * 500 / 72 / 64 // Default to 20pt on 500 dpi monitor
+		attrs := cursor.textAttr[len(cursor.textAttr)-1]
+		// pop the attrs
+		cursor.textAttr = cursor.textAttr[0 : len(cursor.textAttr)-1]
+		tx := 0.0
+		ty := 0.0
+		for _, a := range attrs {
+			switch a.Name.Local {
+			case "x":
+				tx, err = parseFloat(a.Value, 64)
+			case "y":
+				ty, err = parseFloat(a.Value, 64)
+			}
+			if err != nil {
+				return err
+			}
+		}
+		m := rasterx.Identity.Translate(tx, ty).Scale(scale, scale)
+		p, _, _ := cursor.fonts[0].StringToPaths(cursor.text, m, true)
+		//fmt.Println("style", cursor.StyleStack[len(cursor.StyleStack)-1])
+		cursor.icon.SVGPaths = append(cursor.icon.SVGPaths,
+			SvgPath{cursor.StyleStack[len(cursor.StyleStack)-1], p})
+	}
+	return
 }

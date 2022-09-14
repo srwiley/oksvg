@@ -2,9 +2,7 @@ package oksvg
 
 import (
 	"encoding/xml"
-	"fmt"
 	"io"
-	"os"
 	"strconv"
 	"strings"
 
@@ -81,9 +79,9 @@ func ParseTTX(stream io.Reader) (ttx Ttx, err error) {
 	var contour Contour
 	var components = make(map[string][]component)
 
-	getAttrT := func(tag string, attr []xml.Attr) (v string) {
+	getValForTag := func(tag string, attr []xml.Attr) (v string) {
 		for _, a := range attr {
-			if a.Name.Local == "value" {
+			if a.Name.Local == tag {
 				return a.Value
 			}
 		}
@@ -101,7 +99,7 @@ func ParseTTX(stream io.Reader) (ttx Ttx, err error) {
 	}
 
 	setInt16T := func(tag string, attr []xml.Attr) (v int16, err error) {
-		return AtoI16(getAttrT(tag, attr))
+		return AtoI16(getValForTag(tag, attr))
 	}
 
 	setInt16 := func(attr []xml.Attr) (v int16, err error) {
@@ -141,9 +139,9 @@ func ParseTTX(stream io.Reader) (ttx Ttx, err error) {
 			case inHead:
 				switch se.Name.Local {
 				case "created":
-					ttx.Created = getAttrT("value", se.Attr)
+					ttx.Created = getValForTag("value", se.Attr)
 				case "modified":
-					ttx.Modified = getAttrT("value", se.Attr)
+					ttx.Modified = getValForTag("value", se.Attr)
 				case "unitsPerEm":
 					ttx.UnitsPerEm, err = setInt16(se.Attr)
 				case "xMin":
@@ -371,43 +369,26 @@ func (g *Glyph) addComponents(gc Glyph, x, y int16) {
 	}
 }
 
-func (g *Glyph) SaveAsSVG(filename string) (err error) {
-	fout, errf := os.Create(filename)
-	if errf != nil {
-		return errf
-	}
-	defer fout.Close()
-	fmt.Fprintf(fout, "<svg width=\"2cm\" height=\"2cm\" viewBox=\"%d %d %d %d\" ",
-		g.MinX, -g.MaxY, g.MaxX-g.MinX, g.MaxY-g.MinY)
-	fmt.Fprintf(fout, "xmlns=\"http://www.w3.org/2000/svg\" version=\"1.1\">\n")
-	fmt.Fprintf(fout, "<title>ttx letter %s</title>", g.Name)
-	fmt.Fprintf(fout, "<path d=\"")
-	for _, p := range g.Contours {
-		fmt.Fprintf(fout, "%s", p.ContourToPath(fixed.Point26_6{X: 0, Y: 0}, 8).ToSVGPath())
-	}
-	fmt.Fprintf(fout, "\" fill = \"black\"  />\n</svg>\n")
-	return
-}
-
-func SaveAsSVG(filename string, p rasterx.Path) (err error) {
-	fout, errf := os.Create(filename)
-	if errf != nil {
-		return errf
-	}
-	defer fout.Close()
-	fmt.Fprintf(fout, "<svg width=\"15cm\" height=\"8cm\" viewBox=\"%d %d %d %d\" ",
-		//g.MinX, -g.MaxY, g.MaxX-g.MinX, g.MaxY-g.MinY)
-		-400, -700, 8000, 1000)
-	fmt.Fprintf(fout, "xmlns=\"http://www.w3.org/2000/svg\" version=\"1.1\">\n")
-	fmt.Fprintf(fout, "<title>ttx letter %s</title>", "hello")
-	fmt.Fprintf(fout, "<circle cx=\"0\" cy=\"0\" r=\"35\" fill = \"red\"/>\n")
-	fmt.Fprintf(fout, "<path d=\"")
-	//for _, pth := range p {
-	fmt.Fprintf(fout, "%s", p.ToSVGPath())
-	//}
-	fmt.Fprintf(fout, "\" fill = \"black\"  />\n</svg>\n")
-	return
-}
+// func (g *Glyph) SaveAsSVG(filename string) (err error) {
+// 	fout, errf := os.Create(filename)
+// 	if errf != nil {
+// 		return errf
+// 	}
+// 	defer fout.Close()
+// 	fmt.Fprintf(fout, "<svg width=\"2cm\" height=\"2cm\" viewBox=\"%d %d %d %d\" ",
+// 		g.MinX, -g.MaxY, g.MaxX-g.MinX, g.MaxY-g.MinY)
+// 	fmt.Fprintf(fout, "xmlns=\"http://www.w3.org/2000/svg\" version=\"1.1\">\n")
+// 	fmt.Fprintf(fout, "<title>ttx letter %s</title>", g.Name)
+// 	fmt.Fprintf(fout, "<path d=\"")
+// 	for _, c := range g.Contours {
+// 		p := rasterx.Path{}
+// 		ori := fixed.Point26_6{0, 0}
+// 		c.ContourToPath(ori, &p)
+// 		fmt.Fprintf(fout, "%s", p.ToSVGPath())
+// 	}
+// 	fmt.Fprintf(fout, "\" fill = \"black\"  />\n</svg>\n")
+// 	return
+// }
 
 func (ttx *Ttx) GlyphForRune(tk rune) (g Glyph, ok bool) {
 	var name string
@@ -419,9 +400,8 @@ func (ttx *Ttx) GlyphForRune(tk rune) (g Glyph, ok bool) {
 	return
 }
 
-func (ttx *Ttx) StringToPaths(text string, origin fixed.Point26_6, useKerning bool) (p rasterx.Path, advance, consumed int) {
-	//px, py := int16(0), int16(0)
-	//adv := int16(0)
+func (ttx *Ttx) StringToPaths(text string, m rasterx.Matrix2D, useKerning bool) (p rasterx.Path, advance fixed.Point26_6, consumed int) {
+	q := &rasterx.MatrixAdder{M: m, Adder: &p}
 	var lastName string
 	for _, tk := range text {
 		g, ok := ttx.GlyphForRune(tk)
@@ -431,27 +411,26 @@ func (ttx *Ttx) StringToPaths(text string, origin fixed.Point26_6, useKerning bo
 		if len(lastName) > 0 && useKerning {
 			kern, ok := ttx.KernTable[lastName+":"+g.Name]
 			if ok {
-				origin.X += fixed.Int26_6(kern) * 64
+				advance.X += fixed.Int26_6(int(kern))
 			}
 		}
 		consumed++
 		for _, c := range g.Contours {
-			p = append(p, c.ContourToPath(origin, 8)...)
+			c.ContourToPath(advance, q)
 		}
-		origin.X += fixed.Int26_6(g.Width) * 64
+		advance.X += fixed.Int26_6(int(g.Width))
 		lastName = g.Name
 	}
-	advance = int(origin.X / 64)
 	return
 }
 
 // ContourToPath returns a path represenation of the contour.
-func (c Contour) ContourToPath(ori fixed.Point26_6, scale int) (p rasterx.Path) {
+func (c Contour) ContourToPath(ori fixed.Point26_6, p rasterx.Adder) {
 
 	toFixedP := func(x, y int16) (p fixed.Point26_6) {
 		p = fixed.Point26_6{
-			X: fixed.Int26_6(int(x)*scale) + ori.X,
-			Y: fixed.Int26_6(int(y)*scale) + ori.Y}
+			X: fixed.Int26_6(int(x)) + ori.X,
+			Y: fixed.Int26_6(int(y)) + ori.Y}
 		return
 	}
 	if len(c) <= 1 {

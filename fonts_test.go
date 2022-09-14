@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	. "github.com/srwiley/oksvg"
+	"github.com/srwiley/rasterx"
 	. "github.com/srwiley/rasterx"
-	"golang.org/x/image/math/fixed"
 )
 
 func GetFonts(t *testing.T) (fonts []Ttx) {
@@ -36,6 +36,25 @@ func GetFonts(t *testing.T) (fonts []Ttx) {
 	return
 }
 
+func SaveAsSVG(filename string, p rasterx.Path) (err error) {
+	fout, errf := os.Create(filename)
+	if errf != nil {
+		return errf
+	}
+	defer fout.Close()
+	fmt.Fprintf(fout, "<svg width=\"15cm\" height=\"8cm\" viewBox=\"%d %d %d %d\" ",
+		//g.MinX, -g.MaxY, g.MaxX-g.MinX, g.MaxY-g.MinY)
+		-400, -700, 8000, 1000)
+	fmt.Fprintf(fout, "xmlns=\"http://www.w3.org/2000/svg\" version=\"1.1\">\n")
+	fmt.Fprintf(fout, "<title>ttx letter %s</title>", "hello")
+	fmt.Fprintf(fout, "<circle cx=\"0\" cy=\"0\" r=\"35\" fill = \"red\"/>\n")
+	fmt.Fprintf(fout, "<path d=\"")
+	fmt.Println(p.ToSVGPath())
+	fmt.Fprintf(fout, "%s", p.ToSVGPath())
+	fmt.Fprintf(fout, "\" fill = \"black\"  />\n</svg>\n")
+	return
+}
+
 func SaveIconF(t *testing.T, fonts []Ttx, iconPath string) {
 	img := DrawIconF(t, fonts, iconPath)
 	if img != nil {
@@ -48,7 +67,16 @@ func SaveIconF(t *testing.T, fonts []Ttx, iconPath string) {
 }
 
 func DrawIconF(t *testing.T, fonts []Ttx, iconPath string) image.Image {
-	icon, errSvg := ReadIconF(iconPath, fonts, WarnErrorMode)
+	cursor := NewIconCursor()
+	cursor.SetFonts(fonts)
+
+	fin, errf := os.Open(iconPath)
+	if errf != nil {
+		t.Error(errf)
+		return nil
+	}
+	defer fin.Close()
+	icon, errSvg := cursor.ReadIconStream(fin, WarnErrorMode)
 	if errSvg != nil {
 		t.Error(errSvg)
 		return nil
@@ -98,7 +126,7 @@ func TestReadTTx(t *testing.T) {
 		fmt.Println("units per em ", ttx.UnitsPerEm)
 		fmt.Println("mins, maxs ", ttx.MinX, ttx.MinY, ttx.MaxX, ttx.MaxY)
 		//q := ttx.GlyphTable[ttx.CodeTable[uint16(0xbf)]]
-		q := ttx.GlyphTable["o"]
+		//q := ttx.GlyphTable["K"]
 		//fmt.Println(" width ", q.Width, " ", q.MaxX-q.MinX, " ", q.Lsb, " ", q.Name)
 		//q := ttx.GlyphTable["A"]
 		//fmt.Println("q mx", q.MaxX, q.MinX, q.MaxY, q.MinY)
@@ -114,11 +142,11 @@ func TestReadTTx(t *testing.T) {
 
 		fmt.Println("kern A to V  ", ttx.KernTable["A"+":"+"V"])
 
-		err = q.SaveAsSVG(fstr + ".svg")
-		if err != nil {
-			t.Error(err)
-			return
-		}
+		// err = q.SaveAsSVG(fstr + ".svg")
+		// if err != nil {
+		// 	t.Error(err)
+		// 	return
+		// }
 
 		for k, v := range ttx.CodeTable {
 			g, ok := ttx.GlyphTable[v]
@@ -132,7 +160,7 @@ func TestReadTTx(t *testing.T) {
 
 		ttx.KernTable["q:j"] = int16(105)
 
-		p, _, cons := ttx.StringToPaths("qjclash", fixed.Point26_6{}, true)
+		p, _, cons := ttx.StringToPaths("qjclash", rasterx.Identity.Scale(64, 64), true)
 		fmt.Println("cons ", cons)
 		SaveAsSVG("testdata/testfonts/hello.svg", p)
 
