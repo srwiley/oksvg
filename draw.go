@@ -369,6 +369,14 @@ var (
 			if err := df(c, def.Attrs); err != nil {
 				return err
 			}
+			//Did c.Path get added to during the drawFunction call iteration?
+			if len(c.Path) > 0 {
+				//The cursor parsed a path from the xml element
+				pathCopy := make(rasterx.Path, len(c.Path))
+				copy(pathCopy, c.Path)
+				c.icon.SVGPaths = append(c.icon.SVGPaths, SvgPath{c.StyleStack[len(c.StyleStack)-1], pathCopy})
+				c.Path = c.Path[:0]
+			}
 			if def.Tag != "g" {
 				// pop style
 				c.StyleStack = c.StyleStack[:len(c.StyleStack)-1]
