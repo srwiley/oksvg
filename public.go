@@ -160,15 +160,6 @@ func ReadReplacingCurrentColor(stream io.Reader, currentColor string, errMode ..
 // If errMode is provided, the first value determines if the icon ignores, errors out, or logs a warning
 // if it does not handle an element found in the icon file.
 // Ignore warnings is the default if no ErrorMode value is provided.
-// func ReadIcon(iconFile string, errMode ...ErrorMode) (*SvgIcon, error) {
-// 	return ReadIconF(iconFile, nil, errMode...)
-// }
-
-// ReadIcon reads the Icon from the named file.
-// This only supports a sub-set of SVG, but is enough to draw many icons.
-// If errMode is provided, the first value determines if the icon ignores, errors out, or logs a warning
-// if it does not handle an element found in the icon file.
-// Ignore warnings is the default if no ErrorMode value is provided.
 func ReadIcon(iconFile string, errMode ...ErrorMode) (*SvgIcon, error) {
 	fin, errf := os.Open(iconFile)
 	if errf != nil {
