@@ -293,14 +293,9 @@ func (c *IconCursor) readStyleAttr(curStyle *PathStyle, k, v string) error {
 		curStyle.DashOffset = dashOffset
 	case "stroke-dasharray":
 		if v != "none" {
-			dashes := splitOnCommaOrSpace(v)
-			dList := make([]float64, len(dashes))
-			for i, dstr := range dashes {
-				d, err := parseFloat(strings.TrimSpace(dstr), 64)
-				if err != nil {
-					return err
-				}
-				dList[i] = d
+			dList, err := ReadFloatList(v)
+			if err != nil {
+				return err
 			}
 			curStyle.Dash = dList
 			break
@@ -322,6 +317,15 @@ func (c *IconCursor) readStyleAttr(curStyle *PathStyle, k, v string) error {
 			return err
 		}
 		curStyle.mAdder.M = m
+	case "font-family":
+		curStyle.FontFamily = v
+	case "font-kerning":
+		curStyle.FontKerning = true
+		if v == "false" || v == "no" || v == "0" {
+			curStyle.FontKerning = false
+		}
+	case "font-size":
+		curStyle.FontSize = v
 	}
 	return nil
 }

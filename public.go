@@ -116,17 +116,18 @@ func (cursor *IconCursor) ReadIconStream(stream io.Reader, errMode ...ErrorMode)
 			// pop style
 			cursor.StyleStack = cursor.StyleStack[:len(cursor.StyleStack)-1]
 		case xml.CharData:
-			if cursor.inTitleText {
+			switch {
+			case cursor.inTitleText:
 				icon.Titles[len(icon.Titles)-1] += string(se)
-			}
-			if cursor.inText {
+			//case cursor.inTspan:
+			//	fallthrough
+			case cursor.inText:
 				cursor.text += string(se)
-			}
-			if cursor.inDescText {
+			case cursor.inDescText:
 				icon.Descriptions[len(icon.Descriptions)-1] += string(se)
-			}
-			if cursor.inDefsStyle {
+			case cursor.inDefsStyle:
 				classInfo = string(se)
+
 			}
 		}
 	}

@@ -9,6 +9,7 @@ import (
 	"errors"
 	"log"
 	"math"
+	"strings"
 	"unicode"
 
 	"github.com/srwiley/rasterx"
@@ -48,6 +49,19 @@ var (
 	errCommandUnknown = errors.New("unknown command")
 	errZeroLengthID   = errors.New("zero length id")
 )
+
+func ReadFloatList(numStr string) ([]float64, error) {
+	dashes := splitOnCommaOrSpace(numStr)
+	dList := make([]float64, len(dashes))
+	for i, dstr := range dashes {
+		d, err := parseFloat(strings.TrimSpace(dstr), 64)
+		if err != nil {
+			return dList, err
+		}
+		dList[i] = d
+	}
+	return dList, nil
+}
 
 // ReadFloat reads a floating point value and adds it to the cursor's points slice.
 func (c *PathCursor) ReadFloat(numStr string) error {
@@ -107,7 +121,7 @@ func (c *PathCursor) GetPoints(dataPoints string) error {
 }
 
 // EllipseAt adds a path of an elipse centered at cx, cy of radius rx and ry
-// to the PathCursor
+// to the PathCursor.
 func (c *PathCursor) EllipseAt(cx, cy, rx, ry float64) {
 	c.placeX, c.placeY = cx+rx, cy
 	c.points = c.points[0:0]
