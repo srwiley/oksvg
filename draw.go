@@ -418,28 +418,26 @@ func (cursor *IconCursor) closeText() (err error) {
 				if err != nil {
 					return err
 				}
-				cursor.curX = tx
 			case "y":
 				ty, err = parseFloat(a.Value, 64)
 				if err != nil {
 					return err
 				}
-				cursor.curY = ty
 			case "dx":
 				dx, err = parseFloat(a.Value, 64)
 				if err != nil {
 					return err
 				}
-				cursor.curX += dx
 			case "dy":
 				dy, err = parseFloat(a.Value, 64)
 				if err != nil {
 					return err
 				}
-				cursor.curY += dy
 			}
 		}
-		m := rasterx.Identity.Translate(cursor.curX+tx, cursor.curX+ty).Scale(scale, scale)
+		if dx == dy {
+		}
+		m := rasterx.Identity.Translate(tx, ty).Scale(scale, scale)
 		curStyle := cursor.StyleStack[len(cursor.StyleStack)-1]
 		p, _, _ := cursor.fonts[0].StringToPaths(cursor.text, m, curStyle.FontKerning)
 		//fmt.Println("style", cursor.StyleStack[len(cursor.StyleStack)-1])
