@@ -2,17 +2,6 @@
 
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
 
-  <defs>
-    <g id="shape">
-        <rect x="50" y="50" width="50" height="50" />
-        <circle cx="50" cy="50" r="50" />
-    </g>
-  </defs>
-
-   <use xlink:href="#shape" x="200" y="50" />
-        <rect fill = "blue" x="50" y="50" width="50" height="50" />
-        <circle fill = "blue" cx="50" cy="50" r="50" />
-
     <circle fill="red" cx="10" cy="10" r="5" />
 
     <circle fill="blue" cx="10" cy="390" r="5" />
@@ -21,6 +10,11 @@
 
     <circle fill="yellow" cx="390" cy="390" r="5" />
 
-    <text font-size="60px" rotate = "0" fill="black" x="150" y="280" >Hello</text>
-    <text font-size="60px" rotate = "0" fill="black" dx="150"  >there</text>
+    <text font-size="40px" fill="black" x="20" y="50" >coxswain
+    <tspan font-size="40px" rotate = "12,0" dy="90,0,0,0,5,6"  fill="red" >there</tspan>
+     rows fasts
+    </text>
+
+    <text x="240" y="120">Indifferently</text>
+
 </svg>
