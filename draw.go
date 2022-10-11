@@ -36,6 +36,7 @@ var (
 		"title":          titleF,
 		"linearGradient": linearGradientF,
 		"radialGradient": radialGradientF,
+		"style":          styleF,
 	}
 
 	svgF svgFunc = func(c *IconCursor, attrs []xml.Attr) error {
@@ -296,24 +297,42 @@ var (
 		var err error
 		if c.inGrad {
 			stop := rasterx.GradStop{Opacity: 1.0}
+			styleAttrs := make(map[string]string)
+			//Add the parsing of the style attribute in the Stop tag
 			for _, attr := range attrs {
-				switch attr.Name.Local {
-				case "offset":
-					stop.Offset, err = readFraction(attr.Value)
-				case "stop-color":
-					//todo: add current color inherit
-					stop.StopColor, err = ParseSVGColor(attr.Value)
-				case "stop-opacity":
-					stop.Opacity, err = parseFloat(attr.Value, 64)
+				//if the attribute is "style"
+				//Parse and obtain the stop-related attributes inside the style attribute, such as stop-color, offset and other tags
+				//so as to continue to parse the style tag in the future
+				if attr.Name.Local == "style" {
+					styleAttrs, err = parseAttrs(attr.Value)
+				} else {
+					//Parsing regular stop tags
+					err = ParseStopAttr(&stop, attr)
 				}
 				if err != nil {
 					return err
 				}
 			}
+			//Continue parsing the regular stop tag inside the style attribute
+			for k, v := range styleAttrs {
+				err = ParseStopAttr(&stop, xml.Attr{
+					Name:  xml.Name{Local: k},
+					Value: v,
+				})
+			}
+
 			c.grad.Stops = append(c.grad.Stops, stop)
 		}
 		return nil
 	}
+
+	styleF svgFunc = func(c *IconCursor, attrs []xml.Attr) error {
+		//If the style tag is in the outermost layer, you need to parse the relevant style attribute and set inDefsStyle to true
+		//the parser can parse the relevant style
+		c.inDefsStyle = true
+		return nil
+	}
+
 	useF svgFunc = func(c *IconCursor, attrs []xml.Attr) error {
 		var (
 			href string
