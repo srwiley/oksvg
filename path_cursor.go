@@ -23,7 +23,6 @@ type (
 	PathCursor struct {
 		rasterx.Path
 		placeX, placeY         float64
-		curX, curY             float64
 		cntlPtX, cntlPtY       float64
 		pathStartX, pathStartY float64
 		points                 []float64
@@ -124,7 +123,7 @@ func (c *PathCursor) EllipseAt(cx, cy, rx, ry float64) {
 func (c *PathCursor) AddArcFromA(points []float64) {
 	cx, cy := rasterx.FindEllipseCenter(&points[0], &points[1], points[2]*math.Pi/180, c.placeX,
 		c.placeY, points[5], points[6], points[4] == 0, points[3] == 0)
-	c.placeX, c.placeY = rasterx.AddArc(c.points, cx+c.curX, cy+c.curY, c.placeX+c.curX, c.placeY+c.curY, &c.Path)
+	c.placeX, c.placeY = rasterx.AddArc(c.points, cx, cy, c.placeX, c.placeY, &c.Path)
 }
 
 // CompilePath translates the svgPath description string into a rasterx path.
@@ -235,11 +234,11 @@ func (c *PathCursor) addSeg(segString string) error {
 		}
 		c.pathStartX, c.pathStartY = c.points[0], c.points[1]
 		c.inPath = true
-		c.Path.Start(fixed.Point26_6{X: fixed.Int26_6((c.pathStartX + c.curX) * 64), Y: fixed.Int26_6((c.pathStartY + c.curY) * 64)})
+		c.Path.Start(fixed.Point26_6{X: fixed.Int26_6((c.pathStartX) * 64), Y: fixed.Int26_6((c.pathStartY) * 64)})
 		for i := 2; i < l-1; i += 2 {
 			c.Path.Line(fixed.Point26_6{
-				X: fixed.Int26_6((c.points[i] + c.curX) * 64),
-				Y: fixed.Int26_6((c.points[i+1] + c.curY) * 64)})
+				X: fixed.Int26_6((c.points[i]) * 64),
+				Y: fixed.Int26_6((c.points[i+1]) * 64)})
 		}
 		c.placeX = c.points[l-2]
 		c.placeY = c.points[l-1]
@@ -252,8 +251,8 @@ func (c *PathCursor) addSeg(segString string) error {
 		}
 		for i := 0; i < l-1; i += 2 {
 			c.Path.Line(fixed.Point26_6{
-				X: fixed.Int26_6((c.points[i] + c.curX) * 64),
-				Y: fixed.Int26_6((c.points[i+1] + c.curY) * 64)})
+				X: fixed.Int26_6((c.points[i]) * 64),
+				Y: fixed.Int26_6((c.points[i+1]) * 64)})
 		}
 		c.placeX = c.points[l-2]
 		c.placeY = c.points[l-1]
@@ -266,8 +265,8 @@ func (c *PathCursor) addSeg(segString string) error {
 		}
 		for _, p := range c.points {
 			c.Path.Line(fixed.Point26_6{
-				X: fixed.Int26_6((c.placeX + c.curX) * 64),
-				Y: fixed.Int26_6((p + c.curY) * 64)})
+				X: fixed.Int26_6((c.placeX) * 64),
+				Y: fixed.Int26_6((p) * 64)})
 		}
 		c.placeY = c.points[l-1]
 	case 'h':
@@ -279,8 +278,8 @@ func (c *PathCursor) addSeg(segString string) error {
 		}
 		for _, p := range c.points {
 			c.Path.Line(fixed.Point26_6{
-				X: fixed.Int26_6((p + c.curX) * 64),
-				Y: fixed.Int26_6((c.placeY + c.curY) * 64)})
+				X: fixed.Int26_6((p) * 64),
+				Y: fixed.Int26_6((c.placeY) * 64)})
 		}
 		c.placeX = c.points[l-1]
 	case 'q':
@@ -293,11 +292,11 @@ func (c *PathCursor) addSeg(segString string) error {
 		for i := 0; i < l-3; i += 4 {
 			c.Path.QuadBezier(
 				fixed.Point26_6{
-					X: fixed.Int26_6((c.points[i] + c.curX) * 64),
-					Y: fixed.Int26_6((c.points[i+1] + c.curY) * 64)},
+					X: fixed.Int26_6((c.points[i]) * 64),
+					Y: fixed.Int26_6((c.points[i+1]) * 64)},
 				fixed.Point26_6{
-					X: fixed.Int26_6((c.points[i+2] + c.curX) * 64),
-					Y: fixed.Int26_6((c.points[i+3] + c.curY) * 64)})
+					X: fixed.Int26_6((c.points[i+2]) * 64),
+					Y: fixed.Int26_6((c.points[i+3]) * 64)})
 		}
 		c.cntlPtX, c.cntlPtY = c.points[l-4], c.points[l-3]
 		c.placeX = c.points[l-2]
@@ -313,11 +312,11 @@ func (c *PathCursor) addSeg(segString string) error {
 			c.reflectControlQuad()
 			c.Path.QuadBezier(
 				fixed.Point26_6{
-					X: fixed.Int26_6((c.cntlPtX + c.curX) * 64),
-					Y: fixed.Int26_6((c.cntlPtY + c.curY) * 64)},
+					X: fixed.Int26_6((c.cntlPtX) * 64),
+					Y: fixed.Int26_6((c.cntlPtY) * 64)},
 				fixed.Point26_6{
-					X: fixed.Int26_6((c.points[i] + c.curX) * 64),
-					Y: fixed.Int26_6((c.points[i+1] + c.curY) * 64)})
+					X: fixed.Int26_6((c.points[i]) * 64),
+					Y: fixed.Int26_6((c.points[i+1]) * 64)})
 			c.lastKey = k
 			c.placeX = c.points[i]
 			c.placeY = c.points[i+1]
@@ -332,14 +331,14 @@ func (c *PathCursor) addSeg(segString string) error {
 		for i := 0; i < l-5; i += 6 {
 			c.Path.CubeBezier(
 				fixed.Point26_6{
-					X: fixed.Int26_6((c.points[i] + c.curX) * 64),
-					Y: fixed.Int26_6((c.points[i+1] + c.curY) * 64)},
+					X: fixed.Int26_6((c.points[i]) * 64),
+					Y: fixed.Int26_6((c.points[i+1]) * 64)},
 				fixed.Point26_6{
-					X: fixed.Int26_6((c.points[i+2] + c.curX) * 64),
-					Y: fixed.Int26_6((c.points[i+3] + c.curY) * 64)},
+					X: fixed.Int26_6((c.points[i+2]) * 64),
+					Y: fixed.Int26_6((c.points[i+3]) * 64)},
 				fixed.Point26_6{
-					X: fixed.Int26_6((c.points[i+4] + c.curX) * 64),
-					Y: fixed.Int26_6((c.points[i+5] + c.curY) * 64)})
+					X: fixed.Int26_6((c.points[i+4]) * 64),
+					Y: fixed.Int26_6((c.points[i+5]) * 64)})
 		}
 		c.cntlPtX, c.cntlPtY = c.points[l-4], c.points[l-3]
 		c.placeX = c.points[l-2]
@@ -354,11 +353,11 @@ func (c *PathCursor) addSeg(segString string) error {
 		for i := 0; i < l-3; i += 4 {
 			c.reflectControlCube()
 			c.Path.CubeBezier(fixed.Point26_6{
-				X: fixed.Int26_6((c.cntlPtX + c.curX) * 64), Y: fixed.Int26_6((c.cntlPtY + c.curY) * 64)},
+				X: fixed.Int26_6((c.cntlPtX) * 64), Y: fixed.Int26_6((c.cntlPtY) * 64)},
 				fixed.Point26_6{
-					X: fixed.Int26_6((c.points[i] + c.curX) * 64), Y: fixed.Int26_6((c.points[i+1] + c.curY) * 64)},
+					X: fixed.Int26_6((c.points[i]) * 64), Y: fixed.Int26_6((c.points[i+1]) * 64)},
 				fixed.Point26_6{
-					X: fixed.Int26_6((c.points[i+2] + c.curX) * 64), Y: fixed.Int26_6((c.points[i+3] + c.curY) * 64)})
+					X: fixed.Int26_6((c.points[i+2]) * 64), Y: fixed.Int26_6((c.points[i+3]) * 64)})
 			c.lastKey = k
 			c.cntlPtX, c.cntlPtY = c.points[i], c.points[i+1]
 			c.placeX = c.points[i+2]

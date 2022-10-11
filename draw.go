@@ -99,7 +99,7 @@ var (
 		if w == 0 || h == 0 {
 			return nil
 		}
-		rasterx.AddRoundRect(x+c.curX, y+c.curY, w+x+c.curX, h+y+c.curY, rx, ry, 0, rasterx.RoundGap, &c.Path)
+		rasterx.AddRoundRect(x, y, w+x, h+y, rx, ry, 0, rasterx.RoundGap, &c.Path)
 		return nil
 	}
 	circleF svgFunc = func(c *IconCursor, attrs []xml.Attr) error {
@@ -126,7 +126,7 @@ var (
 		if rx == 0 || ry == 0 { // not drawn, but not an error
 			return nil
 		}
-		c.EllipseAt(cx+c.curX, cy+c.curY, rx, ry)
+		c.EllipseAt(cx, cy, rx, ry)
 		return nil
 	}
 	lineF svgFunc = func(c *IconCursor, attrs []xml.Attr) error {
@@ -148,11 +148,11 @@ var (
 			}
 		}
 		c.Path.Start(fixed.Point26_6{
-			X: fixed.Int26_6((x1 + c.curX) * 64),
-			Y: fixed.Int26_6((y1 + c.curY) * 64)})
+			X: fixed.Int26_6((x1) * 64),
+			Y: fixed.Int26_6((y1) * 64)})
 		c.Path.Line(fixed.Point26_6{
-			X: fixed.Int26_6((x2 + c.curX) * 64),
-			Y: fixed.Int26_6((y2 + c.curY) * 64)})
+			X: fixed.Int26_6((x2) * 64),
+			Y: fixed.Int26_6((y2) * 64)})
 		return nil
 	}
 	polylineF svgFunc = func(c *IconCursor, attrs []xml.Attr) error {
@@ -171,12 +171,12 @@ var (
 		}
 		if len(c.points) > 4 {
 			c.Path.Start(fixed.Point26_6{
-				X: fixed.Int26_6((c.points[0] + c.curX) * 64),
-				Y: fixed.Int26_6((c.points[1] + c.curY) * 64)})
+				X: fixed.Int26_6((c.points[0]) * 64),
+				Y: fixed.Int26_6((c.points[1]) * 64)})
 			for i := 2; i < len(c.points)-1; i += 2 {
 				c.Path.Line(fixed.Point26_6{
-					X: fixed.Int26_6((c.points[i] + c.curX) * 64),
-					Y: fixed.Int26_6((c.points[i+1] + c.curY) * 64)})
+					X: fixed.Int26_6((c.points[i]) * 64),
+					Y: fixed.Int26_6((c.points[i+1]) * 64)})
 			}
 		}
 		return nil
@@ -333,10 +333,9 @@ var (
 				return err
 			}
 		}
-		c.curX, c.curY = x, y
-		defer func() {
-			c.curX, c.curY = 0, 0
-		}()
+		// Translate the Style adder matrix by use's x and y
+		c.StyleStack[len(c.StyleStack)-1].mAdder.M =
+			c.StyleStack[len(c.StyleStack)-1].mAdder.M.Translate(x, y)
 		if href == "" {
 			return errors.New("only use tags with href is supported")
 		}
