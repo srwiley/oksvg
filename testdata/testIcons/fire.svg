@@ -1,0 +1,36 @@
+<svg width="300" height="300" viewBox="0 0 300 300">
+<title>Campfire</title>
+<desc>A campfire burning in a pit</desc>
+
+<g style="fill: #777;">
+<title>Fire Pit</title>
+<desc>The fire pit in which the campfire is burning</desc>
+<path d="M26.851,222.754 L0,222.754 L0,271.758 C0,286.751 14.555,299 32.443,299 L267.52,299 C285.408,299 300,286.751 300,271.758 L300,222.754 L273.112,222.754 L273.112,266.534 C273.112,272.067 267.816,276.484 261.27,276.484 L38.693,276.484 C32.147,276.484 26.851,272.058 26.851,266.534 L26.851,222.754 z" />
+</g>
+
+<defs>
+<g id="fire" transform="translate(0,10)" stroke-linejoin="arc" >
+<title>Flames</title>
+<desc>The crackling flames of a campfire</desc>
+<path d="M101.138,160.949 C94.916,154.464 53.538,110.17 95.277,71.802 C130.054,39.868 135.137,13.003 123.434,-0 C123.434,-0 211.959,33.692 159.877,111.877 C150.998,125.163 128.702,140.843 140.369,173.129 L101.138,160.949 z" />
+<path d="M155.503,171.572 C153.624,165.019 145.142,150.746 171.021,122.303 C184.873,107.172 190.104,84.742 191.308,76.301 C191.308,76.301 237.167,100.662 191.576,160.215 L155.503,171.572 z" />
+</g>
+ <linearGradient id="fireGradient" gradientTransform="rotate(90)">
+      <stop offset="20%" stop-color="gold" />
+      <stop offset="90%" stop-color="red" />
+</linearGradient>
+
+</defs>
+<g transform="translate(0,10)" fill="#530" stroke="#310" stroke-width="0">
+<title>Logs</title>
+<desc>The logs burning in the campfire</desc>
+<path d="M240.344,255.473 L240.344,216.874 L59.378,160.915 L59.378,199.513 z"/>
+<path d="M165.259,180.707 L240.321,157.488 L240.321,196.087 L227.627,199.99 z"/>
+
+
+<path d="M134.519,235.715 L59.419,258.9 L59.419,220.301 L72.151,216.433 z"/>
+</g>
+
+<use x="-15" y="-3" href="#fire" fill="#c00" stroke="orange" stroke-width="5px" />
+<use x="5" y="0" href="#fire" fill="url(#fireGradient)" stroke="gold" stroke-width="5px" />
+</svg>

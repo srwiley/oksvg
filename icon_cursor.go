@@ -17,21 +17,32 @@ import (
 	"github.com/srwiley/rasterx"
 )
 
+type state struct {
+	style PathStyle
+	attr  []xml.Attr // Stored for some tags
+	text  string     // Text accumulates here
+
+	// FontSize                          string // These are actually stored in the attrs stack
+	// FontFamily                        string
+	// FontKerning                       bool
+
+	inTitleText, inDescText, inGrad,
+	inDefs, inDefsStyle, inText, inTSpan bool
+}
+
 // IconCursor is used while parsing SVG files.
 type IconCursor struct {
 	PathCursor
 	icon       *SvgIcon
-	StyleStack []PathStyle
+	states     []state
 	grad       *rasterx.Gradient
-	text       string
+	text       string // Collect text elements here
 	fonts      []Ttx
 	currentDef []definition
 	// Text requires the attributes at the end of the
 	// element because the text is caught by xml.CharData
 	// elements.
-	textAttr [][]xml.Attr
-	inTitleText, inDescText, inGrad,
-	inDefs, inDefsStyle, inText bool
+	//textAttr [][]xml.Attr
 }
 
 // ReadGradURL reads an SVG format gradient url
@@ -77,10 +88,10 @@ func (c *IconCursor) ReadGradAttr(attr xml.Attr) (err error) {
 	return
 }
 
-// PushStyle parses the style element, and push it on the style stack. Only color and opacity are supported
+// PushState parses the style element, and push it on the style stack. Only color and opacity are supported
 // for fill. Note that this parses both the contents of a style attribute plus
 // direct fill and opacity attributes.
-func (c *IconCursor) PushStyle(attrs []xml.Attr) error {
+func (c *IconCursor) PushState(attrs []xml.Attr) error {
 	var pairs []string
 	className := ""
 	for _, attr := range attrs {
@@ -93,22 +104,22 @@ func (c *IconCursor) PushStyle(attrs []xml.Attr) error {
 			pairs = append(pairs, attr.Name.Local+":"+attr.Value)
 		}
 	}
-	// Make a copy of the top style
-	curStyle := c.StyleStack[len(c.StyleStack)-1]
+	// Make a copy of the top state
+	state := c.states[len(c.states)-1]
 	for _, pair := range pairs {
 		kv := strings.Split(pair, ":")
 		if len(kv) >= 2 {
 			k := strings.ToLower(kv[0])
 			k = strings.TrimSpace(k)
 			v := strings.TrimSpace(kv[1])
-			err := c.readStyleAttr(&curStyle, k, v)
+			err := c.readStyleAttr(&(state.style), k, v)
 			if err != nil {
 				return err
 			}
 		}
 	}
-	c.adaptClasses(&curStyle, className)
-	c.StyleStack = append(c.StyleStack, curStyle) // Push style onto stack
+	c.adaptClasses(&(state.style), className)
+	c.states = append(c.states, state) // Push style onto stack
 	return nil
 }
 
@@ -173,7 +184,7 @@ func (c *IconCursor) readTransformAttr(m1 rasterx.Matrix2D, k string) (rasterx.M
 
 func (c *IconCursor) parseTransform(v string) (rasterx.Matrix2D, error) {
 	ts := strings.Split(v, ")")
-	m1 := c.StyleStack[len(c.StyleStack)-1].mAdder.M
+	m1 := c.states[len(c.states)-1].style.mAdder.M
 	for _, t := range ts {
 		t = strings.TrimSpace(t)
 		if len(t) == 0 {
@@ -318,24 +329,24 @@ func (c *IconCursor) readStyleAttr(curStyle *PathStyle, k, v string) error {
 		}
 		curStyle.mAdder.M = m
 	case "font-family":
-		curStyle.FontFamily = v
+		//curStyle.FontFamily = v
 	case "font-kerning":
-		curStyle.FontKerning = true
-		if v == "false" || v == "no" || v == "0" {
-			curStyle.FontKerning = false
-		}
+		//curStyle.FontKerning = true
+		// if v == "false" || v == "no" || v == "0" {
+		// 	curStyle.FontKerning = false
+		// }
 	case "font-size":
-		curStyle.FontSize = v
+		//curStyle.FontSize = v
 	}
 	return nil
 }
 
 func (c *IconCursor) readStartElement(se xml.StartElement) (err error) {
 	var skipDef bool
-	if se.Name.Local == "radialGradient" || se.Name.Local == "linearGradient" || c.inGrad {
+	if se.Name.Local == "radialGradient" || se.Name.Local == "linearGradient" || c.states[len(c.states)-1].inGrad {
 		skipDef = true
 	}
-	if c.inDefs && !skipDef {
+	if c.states[len(c.states)-1].inDefs && !skipDef {
 		ID := ""
 		for _, attr := range se.Attr {
 			if attr.Name.Local == "id" {
@@ -375,7 +386,7 @@ func (c *IconCursor) readStartElement(se xml.StartElement) (err error) {
 		pathCopy := make(rasterx.Path, len(c.Path))
 		copy(pathCopy, c.Path)
 		c.icon.SVGPaths = append(c.icon.SVGPaths,
-			SvgPath{c.StyleStack[len(c.StyleStack)-1], pathCopy})
+			SvgPath{c.states[len(c.states)-1].style, pathCopy})
 		c.Path = c.Path[:0]
 	}
 	return

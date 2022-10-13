@@ -35,7 +35,7 @@ func ReadIconStream(stream io.Reader, errMode ...ErrorMode) (*SvgIcon, error) {
 
 func NewIconCursor() *IconCursor {
 	icon := &SvgIcon{Defs: make(map[string][]definition), Grads: make(map[string]*rasterx.Gradient), Transform: rasterx.Identity}
-	return &IconCursor{StyleStack: []PathStyle{DefaultStyle}, icon: icon}
+	return &IconCursor{states: []state{{style: DefaultStyle}}, icon: icon}
 }
 
 // SetFonts adds a set of fonts.
@@ -50,7 +50,7 @@ func (cursor *IconCursor) ReadIconStream(stream io.Reader, errMode ...ErrorMode)
 	if len(errMode) > 0 {
 		cursor.ErrorMode = errMode[0]
 	}
-	classInfo := ""
+	//classInfo := ""
 	decoder := xml.NewDecoder(stream)
 	decoder.CharsetReader = charset.NewReaderLabel
 	for {
@@ -62,11 +62,12 @@ func (cursor *IconCursor) ReadIconStream(stream io.Reader, errMode ...ErrorMode)
 			return icon, err
 		}
 		// Inspect the type of the XML token
+		state := cursor.states[len(cursor.states)-1]
 		switch se := t.(type) {
 		case xml.StartElement:
 			// Reads all recognized style attributes from the start element
 			// and places it on top of the styleStack
-			err = cursor.PushStyle(se.Attr)
+			err = cursor.PushState(se.Attr)
 			if err != nil {
 				return icon, err
 			}
@@ -74,61 +75,71 @@ func (cursor *IconCursor) ReadIconStream(stream io.Reader, errMode ...ErrorMode)
 			if err != nil {
 				return icon, err
 			}
-			if se.Name.Local == "style" && cursor.inDefs {
-				cursor.inDefsStyle = true
+			if se.Name.Local == "style" && state.inDefs {
+				cursor.states[len(cursor.states)-1].inDefsStyle = true
 			}
 		case xml.EndElement:
 			switch se.Name.Local {
 			case "g":
-				if cursor.inDefs {
+				if state.inDefs {
 					cursor.currentDef = append(cursor.currentDef, definition{
 						Tag: "endg",
 					})
 				}
 			case "title":
-				cursor.inTitleText = false
+				icon.Titles = append(icon.Titles, state.text)
+			case "desc":
+				//cursor.states[len(cursor.states)-1].inDescText = false
+				icon.Descriptions = append(icon.Descriptions, state.text)
+			case "style":
+				if state.inDefsStyle {
+					icon.classes, err = parseClasses(state.text)
+					if err != nil {
+						return icon, err
+					}
+					//cursor.states[len(cursor.states)-1].inDefsStyle = false
+				}
 			case "text":
-				cursor.inText = false
+				//cursor.states[len(cursor.states)-1].inText = false
 				//fmt.Printf("Read Text:'%s %d'\n", cursor.text, len(cursor.fonts))
-				err := cursor.closeText()
+				err := cursor.writeText()
 				if err != nil {
 					return icon, err
 				}
-			case "desc":
-				cursor.inDescText = false
 			case "defs":
 				if len(cursor.currentDef) > 0 {
 					cursor.icon.Defs[cursor.currentDef[0].ID] = cursor.currentDef
 					cursor.currentDef = make([]definition, 0)
 				}
-				cursor.inDefs = false
+				//cursor.states[len(cursor.states)-1].inDefs = false
 			case "radialGradient", "linearGradient":
-				cursor.inGrad = false
-			case "style":
-				if cursor.inDefsStyle {
-					icon.classes, err = parseClasses(classInfo)
-					if err != nil {
-						return icon, err
-					}
-					cursor.inDefsStyle = false
-				}
+				//cursor.states[len(cursor.states)-1].inGrad = false
 			}
-			// pop style
-			cursor.StyleStack = cursor.StyleStack[:len(cursor.StyleStack)-1]
+			// pop state
+			cursor.states = cursor.states[:len(cursor.states)-1]
 		case xml.CharData:
 			switch {
-			case cursor.inTitleText:
-				icon.Titles[len(icon.Titles)-1] += string(se)
-			//case cursor.inTspan:
-			//	fallthrough
-			case cursor.inText:
-				cursor.text += string(se)
-			case cursor.inDescText:
-				icon.Descriptions[len(icon.Descriptions)-1] += string(se)
-			case cursor.inDefsStyle:
-				classInfo = string(se)
-
+			case state.inTitleText:
+				fallthrough
+			case state.inText:
+				fallthrough
+			case state.inDescText:
+				fallthrough
+			case state.inDefsStyle:
+				cursor.states[len(cursor.states)-1].text += string(se)
 			}
+			// if cursor.states[len(cursor.states)-1].inTitleText {
+			// 	icon.Titles[len(icon.Titles)-1] += string(se)
+			// }
+			// if cursor.states[len(cursor.states)-1].inText {
+			// 	cursor.text += string(se)
+			// }
+			// if cursor.states[len(cursor.states)-1].inDescText {
+			// 	icon.Descriptions[len(icon.Descriptions)-1] += string(se)
+			// }
+			// if cursor.states[len(cursor.states)-1].inDefsStyle {
+			// 	classInfo = string(se)
+			// }
 		}
 	}
 	return icon, nil
@@ -155,6 +166,15 @@ func ReadReplacingCurrentColor(stream io.Reader, currentColor string, errMode ..
 
 	return icon, nil
 }
+
+// ReadIcon reads the Icon from the named file.
+// This only supports a sub-set of SVG, but is enough to draw many icons.
+// If errMode is provided, the first value determines if the icon ignores, errors out, or logs a warning
+// if it does not handle an element found in the icon file.
+// Ignore warnings is the default if no ErrorMode value is provided.
+// func ReadIcon(iconFile string, errMode ...ErrorMode) (*SvgIcon, error) {
+// 	return ReadIconF(iconFile, nil, errMode...)
+// }
 
 // ReadIcon reads the Icon from the named file.
 // This only supports a sub-set of SVG, but is enough to draw many icons.

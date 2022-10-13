@@ -23,9 +23,6 @@ type PathStyle struct {
 	LineCap                           rasterx.CapFunc
 	LineJoin                          rasterx.JoinMode
 	mAdder                            rasterx.MatrixAdder // current transform
-	FontSize                          string
-	FontFamily                        string
-	FontKerning                       bool
 }
 
 // styleAttribute describes draw options, such as {"fill":"black"; "stroke":"white"}.
@@ -33,6 +30,6 @@ type styleAttribute = map[string]string
 
 // DefaultStyle sets the default PathStyle to fill black, winding rule,
 // full opacity, no stroke, ButtCap line end and Bevel line connect.
-var DefaultStyle = PathStyle{1.0, 1.0, 2.0, 0.0, 4.0, nil, false,
+var DefaultStyle = PathStyle{1.0, 1.0, 2.0, 0.0, 20.0, nil, false,
 	color.NRGBA{0x00, 0x00, 0x00, 0xff}, nil,
-	nil, nil, rasterx.ButtCap, rasterx.Bevel, rasterx.MatrixAdder{M: rasterx.Identity}, "12px", "", true}
+	nil, nil, rasterx.ButtCap, rasterx.Bevel, rasterx.MatrixAdder{M: rasterx.Identity}}

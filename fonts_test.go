@@ -9,7 +9,6 @@ import (
 
 	. "github.com/srwiley/oksvg"
 	"github.com/srwiley/rasterx"
-	. "github.com/srwiley/rasterx"
 )
 
 func GetFonts(t *testing.T) (fonts []Ttx) {
@@ -90,8 +89,8 @@ func DrawIconF(t *testing.T, fonts []Ttx, iconPath string) image.Image {
 	//	raster := NewDasher(w, h, scannerFT)
 	//tb := img.Bounds()
 	//tb.Max.X /= 2
-	scannerGV := NewScannerGV(w, h, img, img.Bounds())
-	raster := NewDasher(w, h, scannerGV)
+	scannerGV := rasterx.NewScannerGV(w, h, img, img.Bounds())
+	raster := rasterx.NewDasher(w, h, scannerGV)
 	icon.Draw(raster, 1.0)
 	return img
 }

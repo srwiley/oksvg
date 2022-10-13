@@ -470,5 +470,4 @@ func (c Contour) ContourToPath(ori fixed.Point26_6, p rasterx.Adder) {
 		p.Line(toFixedP(c[0].X, -c[0].Y))
 	}
 	p.Stop(true)
-	return
 }
