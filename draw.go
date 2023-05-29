@@ -300,6 +300,17 @@ var (
 				switch attr.Name.Local {
 				case "offset":
 					stop.Offset, err = readFraction(attr.Value)
+				case "style":
+					for _, style := range strings.Split(attr.Value, ";") {
+						keyValue := strings.SplitN(style, ":", 2)
+						switch keyValue[0] {
+						case "stop-color":
+							//todo: add current color inherit
+							stop.StopColor, err = ParseSVGColor(keyValue[1])
+						case "stop-opacity":
+							stop.Opacity, err = parseFloat(keyValue[1], 64)
+						}
+					}
 				case "stop-color":
 					//todo: add current color inherit
 					stop.StopColor, err = ParseSVGColor(attr.Value)
