@@ -7,6 +7,7 @@ package oksvg
 
 import (
 	"image/color"
+	"math"
 
 	"github.com/srwiley/rasterx"
 	"golang.org/x/image/math/fixed"
@@ -67,9 +68,20 @@ func (svgp *SvgPath) DrawTransformed(r *rasterx.Dasher, opacity float64, t raste
 		if svgp.LeadLineCap != nil {
 			leadLineCap = svgp.LeadLineCap
 		}
-		r.SetStroke(fixed.Int26_6(svgp.LineWidth*64),
+		// The pen is in user units: scale it, and the dashes, to device
+		// space by the transform's area scale.
+		mt := svgp.mAdder.M
+		scale := math.Sqrt(math.Abs(mt.A*mt.D - mt.B*mt.C))
+		var dash []float64
+		if svgp.Dash != nil {
+			dash = make([]float64, len(svgp.Dash))
+			for i, d := range svgp.Dash {
+				dash[i] = d * scale
+			}
+		}
+		r.SetStroke(fixed.Int26_6(svgp.LineWidth*scale*64),
 			fixed.Int26_6(svgp.MiterLimit*64), leadLineCap, lineCap,
-			lineGap, svgp.LineJoin, svgp.Dash, svgp.DashOffset)
+			lineGap, svgp.LineJoin, dash, svgp.DashOffset*scale)
 		svgp.Path.AddTo(&svgp.mAdder)
 		switch linerColor := svgp.linerColor.(type) {
 		case color.Color:
