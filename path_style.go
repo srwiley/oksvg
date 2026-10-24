@@ -29,7 +29,8 @@ type PathStyle struct {
 type styleAttribute = map[string]string
 
 // DefaultStyle sets the default PathStyle to fill black, winding rule,
-// full opacity, no stroke, ButtCap line end and Bevel line connect.
-var DefaultStyle = PathStyle{1.0, 1.0, 2.0, 0.0, 4.0, nil, true,
+// full opacity, no stroke, a 1-unit pen, ButtCap line end and Miter
+// line connect: SVG's initial values.
+var DefaultStyle = PathStyle{1.0, 1.0, 1.0, 0.0, 4.0, nil, true,
 	color.NRGBA{0x00, 0x00, 0x00, 0xff}, nil,
-	nil, nil, rasterx.ButtCap, rasterx.Bevel, rasterx.MatrixAdder{M: rasterx.Identity}}
+	nil, nil, rasterx.ButtCap, rasterx.Miter, rasterx.MatrixAdder{M: rasterx.Identity}}
