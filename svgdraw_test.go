@@ -192,6 +192,7 @@ func TestStrokeIcons(t *testing.T) {
 		"TestShapes5.svg",
 		"TestShapes6.svg",
 		"DoublePathDef.svg",
+		"TopLevelStyle.svg",
 	} {
 		SaveIcon(t, "testdata/"+p)
 	}

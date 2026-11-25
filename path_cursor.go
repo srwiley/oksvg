@@ -18,7 +18,7 @@ import (
 )
 
 type (
-	// ErrorMode is the for setting how the parser reacts to unparsed elements
+	// ErrorMode is the setting for how the parser reacts to unparsed elements
 	ErrorMode uint8
 	// PathCursor is used to parse SVG format path strings into a rasterx Path
 	PathCursor struct {

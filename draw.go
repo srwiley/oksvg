@@ -8,6 +8,7 @@ package oksvg
 import (
 	"encoding/xml"
 	"errors"
+	"fmt"
 	"log"
 	"strings"
 
@@ -211,13 +212,13 @@ var (
 	}
 
 	descF svgFunc = func(c *IconCursor, attrs []xml.Attr) error {
-		c.states[len(c.states)-1].inDescText = true
+		//c.states[len(c.states)-1].inDesc = true
 		c.icon.Descriptions = append(c.icon.Descriptions, "")
 		return nil
 	}
 
 	titleF svgFunc = func(c *IconCursor, attrs []xml.Attr) error {
-		c.states[len(c.states)-1].inTitleText = true
+		//c.states[len(c.states)-1].inTitle = true
 		c.icon.Titles = append(c.icon.Titles, "")
 		return nil
 	}
@@ -225,15 +226,15 @@ var (
 	textF svgFunc = func(c *IconCursor, attrs []xml.Attr) error {
 		// write out any current text
 		c.states[len(c.states)-1].inText = true
-		c.text = ""
+		//c.text = ""
 		c.states[len(c.states)-1].attr = attrs
 		return nil
 	}
 
 	tSpanF svgFunc = func(c *IconCursor, attrs []xml.Attr) error {
 		// write out any current text
-		c.states[len(c.states)-1].inTSpan = true
-		c.text = ""
+		//c.states[len(c.states)-1].inTSpan = true
+		//c.text = ""
 		c.states[len(c.states)-1].attr = attrs
 		return nil
 	}
@@ -244,7 +245,7 @@ var (
 	}
 
 	styleF svgFunc = func(c *IconCursor, attrs []xml.Attr) error {
-		c.states[len(c.states)-1].inDefsStyle = true
+		//c.states[len(c.states)-1].inStyle = true
 		return nil
 	}
 
@@ -384,7 +385,7 @@ var (
 				c.states = c.states[:len(c.states)-1]
 				continue
 			}
-			if err = c.PushState(def.Attrs); err != nil {
+			if err = c.PushState(def.Tag, def.Attrs); err != nil {
 				return err
 			}
 			df, ok := drawFuncs[def.Tag]
@@ -427,51 +428,57 @@ func (cursor *IconCursor) writeText() (err error) {
 	if len(cursor.fonts) == 0 {
 		return
 	}
-	if len(cursor.text) > 0 {
-		//scale := 20.0 * 500 / 72 / 64 // Default to 20pt on 500 dpi monitor
+	text := cursor.states[len(cursor.states)-1].text
+	if len(text) > 0 {
 		// pop the attrs
-		var attrs []xml.Attr
-		//attrs := cursor.textAttr[len(cursor.textAttr)-1]
+		//var attrs []xml.Attr
+		attrs := cursor.states[len(cursor.states)-1].attr
 		//cursor.textAttr = cursor.textAttr[0 : len(cursor.textAttr)-1]
 		tx := 0.0
 		ty := 0.0
 		dx := 0.0
 		dy := 0.0
+		kerning := true
+		//fontFamily := ""
+		fontSize := 12.0 // default font size
 		for _, a := range attrs {
 			switch a.Name.Local {
 			case "x":
 				tx, err = parseFloat(a.Value, 64)
-				if err != nil {
-					return err
-				}
 			case "y":
 				ty, err = parseFloat(a.Value, 64)
-				if err != nil {
-					return err
-				}
 			case "dx":
 				dx, err = parseFloat(a.Value, 64)
-				if err != nil {
-					return err
-				}
 			case "dy":
 				dy, err = parseFloat(a.Value, 64)
-				if err != nil {
-					return err
+			case "font-kerning":
+				v := strings.ToLower(a.Value)
+				if v == "false" || v == "no" || v == "0" {
+					kerning = true
 				}
+			case "font-family":
+				//fontFamily = a.Value
+			case "font-size":
+				fontSize, err = parseFloat(a.Value, 64)
+			}
+			if err != nil {
+				return err
 			}
 		}
-		if dx == dy {
-			log.Print("doogie")
-		}
-		if tx == ty {
-			log.Println("woof")
-		}
-		//	m := rasterx.Identity.Translate(tx, ty).Scale(scale, scale)
-		//	curStyle := cursor.states[len(cursor.states)-1]
-		//p, _, _ := cursor.fonts[0].StringToPaths(cursor.text, m, curStyle.FontKerning)
+		// if dx == dy {
+		// 	log.Print("doogie")
+		// }
+		// if tx == ty {
+		// 	log.Println("woof")
+		// }
+		scale := fontSize * 125 / 72 / 64 // Seems to work.
+		m := rasterx.Identity.Translate(tx+dx, ty+dy).Scale(scale, scale)
+		curStyle := cursor.states[len(cursor.states)-1].style
+		p, _, _ := cursor.fonts[0].StringToPaths(text, m, kerning)
+		//fmt.Println("FF :", fontFamily)
+		fmt.Println("text :", text)
 		//fmt.Println("style", cursor.StyleStack[len(cursor.StyleStack)-1])
-		//cursor.icon.SVGPaths = append(cursor.icon.SVGPaths, SvgPath{curStyle, p})
+		cursor.icon.SVGPaths = append(cursor.icon.SVGPaths, SvgPath{curStyle, p})
 	}
 	return
 }

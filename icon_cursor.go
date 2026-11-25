@@ -1,7 +1,6 @@
 // Copyright 2017 The oksvg Authors. All rights reserved.
 // created: 2/12/2017 by S.R.Wiley
 //
-// utils.go implements translation of an SVG2.0 path into a rasterx Path.
 
 package oksvg
 
@@ -17,33 +16,37 @@ import (
 	"github.com/srwiley/rasterx"
 )
 
-type state struct {
-	style PathStyle
-	attr  []xml.Attr // Stored for some tags
-	text  string     // Text accumulates here
+type (
+	// state saves parsing state information
+	state struct {
+		name  string // element name of the state
+		style PathStyle
+		attr  []xml.Attr // Stored for some tags
+		text  string     // Text accumulates here
 
-	// FontSize                          string // These are actually stored in the attrs stack
-	// FontFamily                        string
-	// FontKerning                       bool
+		// FontSize                          string // These are actually stored in the attrs stack
+		// FontFamily                        string
+		// FontKerning                       bool
 
-	inTitleText, inDescText, inGrad,
-	inDefs, inDefsStyle, inText, inTSpan bool
-}
+		inGrad, inDefs, inText bool
+	}
 
-// IconCursor is used while parsing SVG files.
-type IconCursor struct {
-	PathCursor
-	icon       *SvgIcon
-	states     []state
-	grad       *rasterx.Gradient
-	text       string // Collect text elements here
-	fonts      []Ttx
-	currentDef []definition
-	// Text requires the attributes at the end of the
-	// element because the text is caught by xml.CharData
-	// elements.
-	//textAttr [][]xml.Attr
-}
+	// definition is used to store XML-tags of SVG source definitions data.
+	definition struct {
+		ID, Tag string
+		Attrs   []xml.Attr
+	}
+
+	// IconCursor is used while parsing SVG files.
+	IconCursor struct {
+		PathCursor
+		icon       *SvgIcon
+		states     []state
+		grad       *rasterx.Gradient
+		fonts      []Ttx
+		currentDef []definition
+	}
+)
 
 // ReadGradURL reads an SVG format gradient url
 // Since the context of the gradient can affect the colors
@@ -63,7 +66,7 @@ func (c *IconCursor) ReadGradURL(v string, defaultColor interface{}) (grad raste
 	return
 }
 
-// ReadGradAttr reads an SVG gradient attribute
+// ReadGradAttr reads an SVG gradient attribute.
 func (c *IconCursor) ReadGradAttr(attr xml.Attr) (err error) {
 	switch attr.Name.Local {
 	case "gradientTransform":
@@ -91,7 +94,7 @@ func (c *IconCursor) ReadGradAttr(attr xml.Attr) (err error) {
 // PushState parses the style element, and push it on the style stack. Only color and opacity are supported
 // for fill. Note that this parses both the contents of a style attribute plus
 // direct fill and opacity attributes.
-func (c *IconCursor) PushState(attrs []xml.Attr) error {
+func (c *IconCursor) PushState(name string, attrs []xml.Attr) error {
 	var pairs []string
 	className := ""
 	for _, attr := range attrs {
@@ -106,6 +109,8 @@ func (c *IconCursor) PushState(attrs []xml.Attr) error {
 	}
 	// Make a copy of the top state
 	state := c.states[len(c.states)-1]
+	state.text = "" // Text does not pass though to the new item
+	state.name = name
 	for _, pair := range pairs {
 		kv := strings.Split(pair, ":")
 		if len(kv) >= 2 {
@@ -328,14 +333,14 @@ func (c *IconCursor) readStyleAttr(curStyle *PathStyle, k, v string) error {
 			return err
 		}
 		curStyle.mAdder.M = m
-	case "font-family":
+		//case "font-family":
 		//curStyle.FontFamily = v
-	case "font-kerning":
+		//case "font-kerning":
 		//curStyle.FontKerning = true
 		// if v == "false" || v == "no" || v == "0" {
 		// 	curStyle.FontKerning = false
 		// }
-	case "font-size":
+		//case "font-size":
 		//curStyle.FontSize = v
 	}
 	return nil

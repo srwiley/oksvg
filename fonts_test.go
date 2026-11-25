@@ -48,7 +48,7 @@ func SaveAsSVG(filename string, p rasterx.Path) (err error) {
 	fmt.Fprintf(fout, "<title>ttx letter %s</title>", "hello")
 	fmt.Fprintf(fout, "<circle cx=\"0\" cy=\"0\" r=\"35\" fill = \"red\"/>\n")
 	fmt.Fprintf(fout, "<path d=\"")
-	fmt.Println(p.ToSVGPath())
+	//fmt.Println(p.ToSVGPath())
 	fmt.Fprintf(fout, "%s", p.ToSVGPath())
 	fmt.Fprintf(fout, "\" fill = \"black\"  />\n</svg>\n")
 	return
@@ -125,8 +125,9 @@ func TestReadTTx(t *testing.T) {
 		fmt.Println("units per em ", ttx.UnitsPerEm)
 		fmt.Println("mins, maxs ", ttx.MinX, ttx.MinY, ttx.MaxX, ttx.MaxY)
 		//q := ttx.GlyphTable[ttx.CodeTable[uint16(0xbf)]]
+		q := ttx.GlyphTable[ttx.CodeTable[uint16(0x000D)]]
 		//q := ttx.GlyphTable["K"]
-		//fmt.Println(" width ", q.Width, " ", q.MaxX-q.MinX, " ", q.Lsb, " ", q.Name)
+		fmt.Println("name", q.Name, "code", q.Code, " width ", q.Width, " ", q.MaxX-q.MinX, " ", q.Lsb, " ", q.Tsb)
 		//q := ttx.GlyphTable["A"]
 		//fmt.Println("q mx", q.MaxX, q.MinX, q.MaxY, q.MinY)
 		//fmt.Println("q contour len ", len(q.Contours))
@@ -149,6 +150,7 @@ func TestReadTTx(t *testing.T) {
 
 		for k, v := range ttx.CodeTable {
 			g, ok := ttx.GlyphTable[v]
+			fmt.Println("glyph name", g.Name)
 			if !ok {
 				continue
 			}
@@ -157,7 +159,7 @@ func TestReadTTx(t *testing.T) {
 			}
 		}
 
-		ttx.KernTable["q:j"] = int16(105)
+		ttx.KernTable["q:j"] = int16(105) // Delete this line and the q and j will clash in the text
 
 		p, _, cons := ttx.StringToPaths("qjclash", rasterx.Identity.Scale(64, 64), true)
 		fmt.Println("cons ", cons)
@@ -167,7 +169,7 @@ func TestReadTTx(t *testing.T) {
 			if q.MinX != q.Lsb {
 				fmt.Println("minx not equal to lsb ", q.MinX, " ", q.Lsb)
 			}
-			if q.MaxY != 2033-q.Tsb {
+			if q.MaxY != 2033-q.Tsb { // Not sure where the hard number 2033 comes from
 				fmt.Println("maxy not equal to Tsb ", q.MaxY, " ", q.Tsb, q.Name)
 			}
 		}
