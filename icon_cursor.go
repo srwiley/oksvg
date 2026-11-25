@@ -132,21 +132,23 @@ func (c *IconCursor) readTransformAttr(m1 rasterx.Matrix2D, k string) (rasterx.M
 	ln := len(c.points)
 	switch k {
 	case "rotate":
-		if ln == 1 {
+		switch ln {
+		case 1:
 			m1 = m1.Rotate(c.points[0] * math.Pi / 180)
-		} else if ln == 3 {
+		case 3:
 			m1 = m1.Translate(c.points[1], c.points[2]).
 				Rotate(c.points[0]*math.Pi/180).
 				Translate(-c.points[1], -c.points[2])
-		} else {
+		default:
 			return m1, errParamMismatch
 		}
 	case "translate":
-		if ln == 1 {
+		switch ln {
+		case 1:
 			m1 = m1.Translate(c.points[0], 0)
-		} else if ln == 2 {
+		case 2:
 			m1 = m1.Translate(c.points[0], c.points[1])
-		} else {
+		default:
 			return m1, errParamMismatch
 		}
 	case "skewx":
@@ -162,11 +164,12 @@ func (c *IconCursor) readTransformAttr(m1 rasterx.Matrix2D, k string) (rasterx.M
 			return m1, errParamMismatch
 		}
 	case "scale":
-		if ln == 1 {
+		switch ln {
+		case 1:
 			m1 = m1.Scale(c.points[0], 0)
-		} else if ln == 2 {
+		case 2:
 			m1 = m1.Scale(c.points[0], c.points[1])
-		} else {
+		default:
 			return m1, errParamMismatch
 		}
 	case "matrix":

@@ -118,7 +118,6 @@ func ParseTTX(stream io.Reader) (ttx Ttx, err error) {
 		}
 		switch se := t.(type) {
 		case xml.StartElement:
-			var i int
 			switch state {
 			case inNothing:
 				switch se.Name.Local {
@@ -192,6 +191,7 @@ func ParseTTX(stream io.Reader) (ttx Ttx, err error) {
 			case inContour:
 				if strings.ToLower(se.Name.Local) == "pt" {
 					var p CPoint
+					var i int
 					for _, a := range se.Attr {
 						switch strings.ToLower(a.Name.Local) {
 						case "on":
@@ -404,6 +404,12 @@ func (ttx *Ttx) StringToPaths(text string, m rasterx.Matrix2D, useKerning bool) 
 	q := &rasterx.MatrixAdder{M: m, Adder: &p}
 	var lastName string
 	for _, tk := range text {
+		if tk == '\n' {
+			advance.Y += fixed.Int26_6(ttx.MaxX - ttx.MinX)
+			advance.X = 0
+			lastName = ""
+			continue
+		}
 		g, ok := ttx.GlyphForRune(tk)
 		if !ok {
 			continue

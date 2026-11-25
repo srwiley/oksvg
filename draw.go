@@ -231,13 +231,13 @@ var (
 		return nil
 	}
 
-	tSpanF svgFunc = func(c *IconCursor, attrs []xml.Attr) error {
-		// write out any current text
-		//c.states[len(c.states)-1].inTSpan = true
-		//c.text = ""
-		c.states[len(c.states)-1].attr = attrs
-		return nil
-	}
+	// tSpanF svgFunc = func(c *IconCursor, attrs []xml.Attr) error {
+	// 	// write out any current text
+	// 	//c.states[len(c.states)-1].inTSpan = true
+	// 	//c.text = ""
+	// 	c.states[len(c.states)-1].attr = attrs
+	// 	return nil
+	// }
 
 	defsF svgFunc = func(c *IconCursor, attrs []xml.Attr) error {
 		c.states[len(c.states)-1].inDefs = true
@@ -391,9 +391,10 @@ var (
 			df, ok := drawFuncs[def.Tag]
 			if !ok {
 				errStr := "Cannot process svg element " + def.Tag
-				if c.ErrorMode == StrictErrorMode {
+				switch c.ErrorMode {
+				case StrictErrorMode:
 					return errors.New(errStr)
-				} else if c.ErrorMode == WarnErrorMode {
+				case WarnErrorMode:
 					log.Println(errStr)
 				}
 				return nil
