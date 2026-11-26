@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"image/color"
 	"io"
-	"io/ioutil"
 	"math"
 	"os"
 	"strconv"
@@ -148,7 +147,7 @@ func ReadReplacingCurrentColor(stream io.Reader, currentColor string, errMode ..
 		data []byte
 	)
 
-	if data, err = ioutil.ReadAll(stream); err != nil {
+	if data, err = io.ReadAll(stream); err != nil {
 		return nil, fmt.Errorf("%w: read data: %v", errParamMismatch, err)
 	}
 

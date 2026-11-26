@@ -403,13 +403,14 @@ func (ttx *Ttx) GlyphForRune(tk rune) (g Glyph, ok bool) {
 func (ttx *Ttx) StringToPaths(text string, m rasterx.Matrix2D, useKerning bool) (p rasterx.Path, advance fixed.Point26_6, consumed int) {
 	q := &rasterx.MatrixAdder{M: m, Adder: &p}
 	var lastName string
+	text = strings.Join(strings.Fields(text), " ")
 	for _, tk := range text {
-		if tk == '\n' {
-			advance.Y += fixed.Int26_6(ttx.MaxX - ttx.MinX)
-			advance.X = 0
-			lastName = ""
-			continue
-		}
+		// if tk == '\n' {
+		// 	advance.Y += fixed.Int26_6(ttx.MaxX - ttx.MinX)
+		// 	advance.X = 0
+		// 	//lastName = ""
+		// 	continue
+		// }
 		g, ok := ttx.GlyphForRune(tk)
 		if !ok {
 			continue

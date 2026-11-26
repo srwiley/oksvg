@@ -8,7 +8,6 @@ package oksvg
 import (
 	"encoding/xml"
 	"errors"
-	"fmt"
 	"log"
 	"strings"
 
@@ -466,18 +465,12 @@ func (cursor *IconCursor) writeText() (err error) {
 				return err
 			}
 		}
-		// if dx == dy {
-		// 	log.Print("doogie")
-		// }
-		// if tx == ty {
-		// 	log.Println("woof")
-		// }
 		scale := fontSize * 125 / 72 / 64 // Seems to work.
 		m := rasterx.Identity.Translate(tx+dx, ty+dy).Scale(scale, scale)
 		curStyle := cursor.states[len(cursor.states)-1].style
 		p, _, _ := cursor.fonts[0].StringToPaths(text, m, kerning)
 		//fmt.Println("FF :", fontFamily)
-		fmt.Println("text :", text)
+		//fmt.Println("text :", text)
 		//fmt.Println("style", cursor.StyleStack[len(cursor.StyleStack)-1])
 		cursor.icon.SVGPaths = append(cursor.icon.SVGPaths, SvgPath{curStyle, p})
 	}

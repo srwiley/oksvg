@@ -19,15 +19,10 @@ import (
 type (
 	// state saves parsing state information
 	state struct {
-		name  string // element name of the state
-		style PathStyle
-		attr  []xml.Attr // Stored for some tags
-		text  string     // Text accumulates here
-
-		// FontSize                          string // These are actually stored in the attrs stack
-		// FontFamily                        string
-		// FontKerning                       bool
-
+		name                   string // element name of the state
+		style                  PathStyle
+		attr                   []xml.Attr // Stored for some tags
+		text                   string     // Text accumulates here
 		inGrad, inDefs, inText bool
 	}
 

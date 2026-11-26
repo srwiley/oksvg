@@ -98,7 +98,7 @@ func DrawIconF(t *testing.T, fonts []Ttx, iconPath string) image.Image {
 func TestSVGText(t *testing.T) {
 	fonts := GetFonts(t)
 	t.Log("loaded fonts ", len(fonts))
-	SaveIconF(t, fonts, "testdata/SimpleText.svg")
+	SaveIconF(t, fonts, "testdata/SimpleText2.svg")
 }
 
 func TestReadTTx(t *testing.T) {
