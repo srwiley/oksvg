@@ -8,6 +8,7 @@ package oksvg
 import (
 	"errors"
 	"image/color"
+	"math"
 	"strconv"
 	"strings"
 
@@ -32,6 +33,38 @@ func parseColorValue(v string) (uint8, error) {
 		n = 255
 	}
 	return uint8(n), err
+}
+
+// parseColorAlpha parses an SVG alpha value, either a number in the range 0 to 1
+// or a percentage, and returns it as an 8 bit alpha value.
+func parseColorAlpha(v string) (uint8, error) {
+	v = strings.TrimSpace(v)
+	if v == "" {
+		return 0, errParamMismatch
+	}
+	if v[len(v)-1] == '%' {
+		n, err := strconv.ParseFloat(strings.TrimSpace(v[:len(v)-1]), 64)
+		if err != nil {
+			return 0, err
+		}
+		return clampAlpha(n / 100), nil
+	}
+	n, err := strconv.ParseFloat(v, 64)
+	if err != nil {
+		return 0, err
+	}
+	return clampAlpha(n), nil
+}
+
+// clampAlpha converts a 0 to 1 alpha value to an 8 bit alpha value.
+func clampAlpha(a float64) uint8 {
+	if a <= 0 {
+		return 0
+	}
+	if a >= 1 {
+		return 0xFF
+	}
+	return uint8(math.Round(a * 0xFF))
 }
 
 // trimSuffixes removes unitSuffixes from any number that is not just numeric

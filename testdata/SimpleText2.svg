@@ -1,19 +1,7 @@
 <!--<?xml version="1.0" encoding="utf-8"?>-->
 
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
-
-    <circle fill="red" cx="10" cy="10" r="5" />
-
-    <circle fill="blue" cx="10" cy="390" r="5" />
-
-    <circle fill="green" cx="390" cy="10" r="5" />
-
-    <circle fill="yellow" cx="390" cy="390" r="5" />
-
-    <text font-size="40px" fill="black" x="20" y="50" >coxswain
-     rows fast
-    </text>
-
-    <text x="240" y="120">Indifferently</text>
-
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <g transform="scale(0.5, 2.0)">
+    <rect x="32" y="8" width="64" height="48" style="fill:#3b82f6;stroke:#1e3a8a;stroke-width:12;stroke-linejoin:round;" />
+  </g>
 </svg>

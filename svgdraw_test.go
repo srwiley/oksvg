@@ -229,6 +229,35 @@ func TestClassesIcon(t *testing.T) {
 
 }
 
+func TestRGBA(t *testing.T) {
+	for _, tc := range []struct {
+		in   string
+		want color.NRGBA
+	}{
+		{"rgb(255,255,255)", color.NRGBA{255, 255, 255, 255}},
+		{"rgba(255,255,255,1.0)", color.NRGBA{255, 255, 255, 255}},
+		{"rgba(255, 0, 0, 0.5)", color.NRGBA{255, 0, 0, 128}},
+		{"rgba(0,0,0,0)", color.NRGBA{0, 0, 0, 0}},
+		{"rgba(0,0,255,50%)", color.NRGBA{0, 0, 255, 128}},
+	} {
+		c, err := ParseSVGColor(tc.in)
+		if err != nil {
+			t.Errorf("%s: %v", tc.in, err)
+			continue
+		}
+		if got := c.(color.NRGBA); got != tc.want {
+			t.Errorf("%s: got %v, want %v", tc.in, got, tc.want)
+		}
+	}
+
+	if _, err := ParseSVGColor("rgba(255,255,255)"); err == nil {
+		t.Error("rgba with 3 values should error")
+	}
+	if _, err := ParseSVGColor("rgba(255,255,255,1.0,2)"); err == nil {
+		t.Error("rgba with 5 values should error")
+	}
+}
+
 func TestHSL(t *testing.T) {
 	c, err := ParseSVGColor("hsl(198, 47%, 65%)")
 	if err != nil {

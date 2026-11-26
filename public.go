@@ -243,13 +243,21 @@ func ParseSVGColor(colorStr string) (color.Color, error) {
 		}
 
 		readRGB parseColorFunc = func(colorStr string) (color.Color, bool, error) {
-			cStr := strings.TrimPrefix(colorStr, "rgb(")
-			if cStr == colorStr {
-				return nil, false, nil
+			cStr := strings.TrimPrefix(colorStr, "rgba(")
+			hasAlpha := cStr != colorStr
+			if !hasAlpha {
+				cStr = strings.TrimPrefix(colorStr, "rgb(")
+				if cStr == colorStr {
+					return nil, false, nil
+				}
 			}
 			cStr = strings.TrimSuffix(cStr, ")")
 			vals := strings.Split(cStr, ",")
-			if len(vals) != 3 {
+			want := 3
+			if hasAlpha {
+				want = 4
+			}
+			if len(vals) != want {
 				return color.NRGBA{}, true, errParamMismatch
 			}
 			var cvals [3]uint8
@@ -260,7 +268,14 @@ func ParseSVGColor(colorStr string) (color.Color, error) {
 					return nil, true, err
 				}
 			}
-			return color.NRGBA{cvals[0], cvals[1], cvals[2], 0xFF}, true, nil
+			alpha := uint8(0xFF)
+			if hasAlpha {
+				alpha, err = parseColorAlpha(vals[3])
+				if err != nil {
+					return nil, true, err
+				}
+			}
+			return color.NRGBA{cvals[0], cvals[1], cvals[2], alpha}, true, nil
 		}
 
 		readHSL parseColorFunc = func(colorStr string) (color.Color, bool, error) {
