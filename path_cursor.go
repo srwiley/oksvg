@@ -9,6 +9,7 @@ import (
 	"errors"
 	"log"
 	"math"
+	"strings"
 	"unicode"
 
 	"github.com/srwiley/rasterx"
@@ -17,7 +18,7 @@ import (
 )
 
 type (
-	// ErrorMode is the for setting how the parser reacts to unparsed elements
+	// ErrorMode is the setting for how the parser reacts to unparsed elements
 	ErrorMode uint8
 	// PathCursor is used to parse SVG format path strings into a rasterx Path
 	PathCursor struct {
@@ -48,6 +49,19 @@ var (
 	errCommandUnknown = errors.New("unknown command")
 	errZeroLengthID   = errors.New("zero length id")
 )
+
+func ReadFloatList(numStr string) ([]float64, error) {
+	dashes := splitOnCommaOrSpace(numStr)
+	dList := make([]float64, len(dashes))
+	for i, dstr := range dashes {
+		d, err := parseFloat(strings.TrimSpace(dstr), 64)
+		if err != nil {
+			return dList, err
+		}
+		dList[i] = d
+	}
+	return dList, nil
+}
 
 // ReadFloat reads a floating point value and adds it to the cursor's points slice.
 func (c *PathCursor) ReadFloat(numStr string) error {
@@ -107,7 +121,7 @@ func (c *PathCursor) GetPoints(dataPoints string) error {
 }
 
 // EllipseAt adds a path of an elipse centered at cx, cy of radius rx and ry
-// to the PathCursor
+// to the PathCursor.
 func (c *PathCursor) EllipseAt(cx, cy, rx, ry float64) {
 	c.placeX, c.placeY = cx+rx, cy
 	c.points = c.points[0:0]
@@ -123,7 +137,7 @@ func (c *PathCursor) EllipseAt(cx, cy, rx, ry float64) {
 func (c *PathCursor) AddArcFromA(points []float64) {
 	cx, cy := rasterx.FindEllipseCenter(&points[0], &points[1], points[2]*math.Pi/180, c.placeX,
 		c.placeY, points[5], points[6], points[4] == 0, points[3] == 0)
-	c.placeX, c.placeY = rasterx.AddArc(c.points, cx, cy, c.placeX, c.placeY, &c.Path)
+	c.placeX, c.placeY = rasterx.AddArc(points, cx, cy, c.placeX, c.placeY, &c.Path)
 }
 
 // CompilePath translates the svgPath description string into a rasterx path.

@@ -1,0 +1,21 @@
+<!--<?xml version="1.0" encoding="utf-8"?>-->
+
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">
+
+    <circle fill="red" cx="10" cy="10" r="5" />
+
+    <circle fill="blue" cx="10" cy="390" r="5" />
+
+    <circle fill="green" cx="390" cy="10" r="5" />
+
+    <circle fill="yellow" cx="390" cy="390" r="5" />
+
+    <text font-size="40px" fill="black" x="20" y="50" >coxswain
+    <tspan font-size="40px" rotate = "12,0" dy="90,0,0,0,5,6"  fill="red" >there</tspan>
+     rows
+     fast
+    </text>
+
+    <text x="240" y="120">Indifferently</text>
+
+</svg>

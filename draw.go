@@ -26,7 +26,7 @@ var (
 		"stop":           stopF,
 		"rect":           rectF,
 		"circle":         circleF,
-		"ellipse":        circleF, //circleF handles ellipse also
+		"ellipse":        circleF, //circleF handels ellipse
 		"polyline":       polylineF,
 		"polygon":        polygonF,
 		"path":           pathF,
@@ -34,6 +34,7 @@ var (
 		"defs":           defsF,
 		"style":          styleF,
 		"title":          titleF,
+		"text":           textF,
 		"linearGradient": linearGradientF,
 		"radialGradient": radialGradientF,
 	}
@@ -73,7 +74,9 @@ var (
 		}
 		return nil
 	}
-	gF    svgFunc = func(*IconCursor, []xml.Attr) error { return nil } // g does nothing but push the style
+
+	gF svgFunc = func(*IconCursor, []xml.Attr) error { return nil } // g does nothing but push the style
+
 	rectF svgFunc = func(c *IconCursor, attrs []xml.Attr) error {
 		var x, y, w, h, rx, ry float64
 		var err error
@@ -102,6 +105,7 @@ var (
 		rasterx.AddRoundRect(x, y, w+x, h+y, rx, ry, 0, rasterx.RoundGap, &c.Path)
 		return nil
 	}
+
 	circleF svgFunc = func(c *IconCursor, attrs []xml.Attr) error {
 		var cx, cy, rx, ry float64
 		var err error
@@ -129,6 +133,7 @@ var (
 		c.EllipseAt(cx, cy, rx, ry)
 		return nil
 	}
+
 	lineF svgFunc = func(c *IconCursor, attrs []xml.Attr) error {
 		var x1, x2, y1, y2 float64
 		var err error
@@ -155,6 +160,7 @@ var (
 			Y: fixed.Int26_6((y2) * 64)})
 		return nil
 	}
+
 	polylineF svgFunc = func(c *IconCursor, attrs []xml.Attr) error {
 		var err error
 		for _, attr := range attrs {
@@ -181,6 +187,7 @@ var (
 		}
 		return nil
 	}
+
 	polygonF svgFunc = func(c *IconCursor, attrs []xml.Attr) error {
 		err := polylineF(c, attrs)
 		if len(c.points) > 4 {
@@ -188,6 +195,7 @@ var (
 		}
 		return err
 	}
+
 	pathF svgFunc = func(c *IconCursor, attrs []xml.Attr) error {
 		var err error
 		for _, attr := range attrs {
@@ -201,27 +209,48 @@ var (
 		}
 		return nil
 	}
+
 	descF svgFunc = func(c *IconCursor, attrs []xml.Attr) error {
-		c.inDescText = true
+		//c.states[len(c.states)-1].inDesc = true
 		c.icon.Descriptions = append(c.icon.Descriptions, "")
 		return nil
 	}
+
 	titleF svgFunc = func(c *IconCursor, attrs []xml.Attr) error {
-		c.inTitleText = true
+		//c.states[len(c.states)-1].inTitle = true
 		c.icon.Titles = append(c.icon.Titles, "")
 		return nil
 	}
+
+	textF svgFunc = func(c *IconCursor, attrs []xml.Attr) error {
+		// write out any current text
+		c.states[len(c.states)-1].inText = true
+		//c.text = ""
+		c.states[len(c.states)-1].attr = attrs
+		return nil
+	}
+
+	// tSpanF svgFunc = func(c *IconCursor, attrs []xml.Attr) error {
+	// 	// write out any current text
+	// 	//c.states[len(c.states)-1].inTSpan = true
+	// 	//c.text = ""
+	// 	c.states[len(c.states)-1].attr = attrs
+	// 	return nil
+	// }
+
 	defsF svgFunc = func(c *IconCursor, attrs []xml.Attr) error {
-		c.inDefs = true
+		c.states[len(c.states)-1].inDefs = true
 		return nil
 	}
+
 	styleF svgFunc = func(c *IconCursor, attrs []xml.Attr) error {
-		c.inDefsStyle = true
+		//c.states[len(c.states)-1].inStyle = true
 		return nil
 	}
+
 	linearGradientF svgFunc = func(c *IconCursor, attrs []xml.Attr) error {
 		var err error
-		c.inGrad = true
+		c.states[len(c.states)-1].inGrad = true
 		c.grad = &rasterx.Gradient{Points: [5]float64{0, 0, 1, 0, 0},
 			IsRadial: false, Bounds: c.icon.ViewBox, Matrix: rasterx.Identity}
 		for _, attr := range attrs {
@@ -250,8 +279,9 @@ var (
 		}
 		return nil
 	}
+
 	radialGradientF svgFunc = func(c *IconCursor, attrs []xml.Attr) error {
-		c.inGrad = true
+		c.states[len(c.states)-1].inGrad = true
 		c.grad = &rasterx.Gradient{Points: [5]float64{0.5, 0.5, 0.5, 0.5, 0.5},
 			IsRadial: true, Bounds: c.icon.ViewBox, Matrix: rasterx.Identity}
 		var setFx, setFy bool
@@ -292,9 +322,10 @@ var (
 		}
 		return nil
 	}
+
 	stopF svgFunc = func(c *IconCursor, attrs []xml.Attr) error {
 		var err error
-		if c.inGrad {
+		if c.states[len(c.states)-1].inGrad {
 			stop := rasterx.GradStop{Opacity: 1.0}
 			for _, attr := range attrs {
 				switch attr.Name.Local {
@@ -314,6 +345,7 @@ var (
 		}
 		return nil
 	}
+
 	useF svgFunc = func(c *IconCursor, attrs []xml.Attr) error {
 		var (
 			href string
@@ -334,8 +366,8 @@ var (
 			}
 		}
 		// Translate the Style adder matrix by use's x and y
-		c.StyleStack[len(c.StyleStack)-1].mAdder.M =
-			c.StyleStack[len(c.StyleStack)-1].mAdder.M.Translate(x, y)
+		c.states[len(c.states)-1].style.mAdder.M =
+			c.states[len(c.states)-1].style.mAdder.M.Translate(x, y)
 		if href == "" {
 			return errors.New("only use tags with href is supported")
 		}
@@ -349,18 +381,19 @@ var (
 		for _, def := range defs {
 			if def.Tag == "endg" {
 				// pop style
-				c.StyleStack = c.StyleStack[:len(c.StyleStack)-1]
+				c.states = c.states[:len(c.states)-1]
 				continue
 			}
-			if err = c.PushStyle(def.Attrs); err != nil {
+			if err = c.PushState(def.Tag, def.Attrs); err != nil {
 				return err
 			}
 			df, ok := drawFuncs[def.Tag]
 			if !ok {
 				errStr := "Cannot process svg element " + def.Tag
-				if c.ErrorMode == StrictErrorMode {
+				switch c.ErrorMode {
+				case StrictErrorMode:
 					return errors.New(errStr)
-				} else if c.ErrorMode == WarnErrorMode {
+				case WarnErrorMode:
 					log.Println(errStr)
 				}
 				return nil
@@ -373,12 +406,12 @@ var (
 				//The cursor parsed a path from the xml element
 				pathCopy := make(rasterx.Path, len(c.Path))
 				copy(pathCopy, c.Path)
-				c.icon.SVGPaths = append(c.icon.SVGPaths, SvgPath{c.StyleStack[len(c.StyleStack)-1], pathCopy})
+				c.icon.SVGPaths = append(c.icon.SVGPaths, SvgPath{c.states[len(c.states)-1].style, pathCopy})
 				c.Path = c.Path[:0]
 			}
 			if def.Tag != "g" {
 				// pop style
-				c.StyleStack = c.StyleStack[:len(c.StyleStack)-1]
+				c.states = c.states[:len(c.states)-1]
 			}
 		}
 		return nil
@@ -389,4 +422,57 @@ func init() {
 	// avoids cyclical static declaration
 	// called on package initialization
 	drawFuncs["use"] = useF
+}
+
+func (cursor *IconCursor) writeText() (err error) {
+	if len(cursor.fonts) == 0 {
+		return
+	}
+	text := cursor.states[len(cursor.states)-1].text
+	if len(text) > 0 {
+		// pop the attrs
+		//var attrs []xml.Attr
+		attrs := cursor.states[len(cursor.states)-1].attr
+		//cursor.textAttr = cursor.textAttr[0 : len(cursor.textAttr)-1]
+		tx := 0.0
+		ty := 0.0
+		dx := 0.0
+		dy := 0.0
+		kerning := true
+		//fontFamily := ""
+		fontSize := 12.0 // default font size
+		for _, a := range attrs {
+			switch a.Name.Local {
+			case "x":
+				tx, err = parseFloat(a.Value, 64)
+			case "y":
+				ty, err = parseFloat(a.Value, 64)
+			case "dx":
+				dx, err = parseFloat(a.Value, 64)
+			case "dy":
+				dy, err = parseFloat(a.Value, 64)
+			case "font-kerning":
+				v := strings.ToLower(a.Value)
+				if v == "false" || v == "no" || v == "0" {
+					kerning = true
+				}
+			case "font-family":
+				//fontFamily = a.Value
+			case "font-size":
+				fontSize, err = parseFloat(a.Value, 64)
+			}
+			if err != nil {
+				return err
+			}
+		}
+		scale := fontSize * 125 / 72 / 64 // Seems to work.
+		m := rasterx.Identity.Translate(tx+dx, ty+dy).Scale(scale, scale)
+		curStyle := cursor.states[len(cursor.states)-1].style
+		p, _, _ := cursor.fonts[0].StringToPaths(text, m, kerning)
+		//fmt.Println("FF :", fontFamily)
+		//fmt.Println("text :", text)
+		//fmt.Println("style", cursor.StyleStack[len(cursor.StyleStack)-1])
+		cursor.icon.SVGPaths = append(cursor.icon.SVGPaths, SvgPath{curStyle, p})
+	}
+	return
 }

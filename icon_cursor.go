@@ -1,7 +1,6 @@
 // Copyright 2017 The oksvg Authors. All rights reserved.
 // created: 2/12/2017 by S.R.Wiley
 //
-// utils.go implements translation of an SVG2.0 path into a rasterx Path.
 
 package oksvg
 
@@ -17,15 +16,32 @@ import (
 	"github.com/srwiley/rasterx"
 )
 
-// IconCursor is used while parsing SVG files.
-type IconCursor struct {
-	PathCursor
-	icon                                                 *SvgIcon
-	StyleStack                                           []PathStyle
-	grad                                                 *rasterx.Gradient
-	inTitleText, inDescText, inGrad, inDefs, inDefsStyle bool
-	currentDef                                           []definition
-}
+type (
+	// state saves parsing state information
+	state struct {
+		name                   string // element name of the state
+		style                  PathStyle
+		attr                   []xml.Attr // Stored for some tags
+		text                   string     // Text accumulates here
+		inGrad, inDefs, inText bool
+	}
+
+	// definition is used to store XML-tags of SVG source definitions data.
+	definition struct {
+		ID, Tag string
+		Attrs   []xml.Attr
+	}
+
+	// IconCursor is used while parsing SVG files.
+	IconCursor struct {
+		PathCursor
+		icon       *SvgIcon
+		states     []state
+		grad       *rasterx.Gradient
+		fonts      []Ttx
+		currentDef []definition
+	}
+)
 
 // ReadGradURL reads an SVG format gradient url
 // Since the context of the gradient can affect the colors
@@ -45,7 +61,7 @@ func (c *IconCursor) ReadGradURL(v string, defaultColor interface{}) (grad raste
 	return
 }
 
-// ReadGradAttr reads an SVG gradient attribute
+// ReadGradAttr reads an SVG gradient attribute.
 func (c *IconCursor) ReadGradAttr(attr xml.Attr) (err error) {
 	switch attr.Name.Local {
 	case "gradientTransform":
@@ -70,10 +86,10 @@ func (c *IconCursor) ReadGradAttr(attr xml.Attr) (err error) {
 	return
 }
 
-// PushStyle parses the style element, and push it on the style stack. Only color and opacity are supported
+// PushState parses the style element, and push it on the style stack. Only color and opacity are supported
 // for fill. Note that this parses both the contents of a style attribute plus
 // direct fill and opacity attributes.
-func (c *IconCursor) PushStyle(attrs []xml.Attr) error {
+func (c *IconCursor) PushState(name string, attrs []xml.Attr) error {
 	var pairs []string
 	className := ""
 	for _, attr := range attrs {
@@ -86,22 +102,24 @@ func (c *IconCursor) PushStyle(attrs []xml.Attr) error {
 			pairs = append(pairs, attr.Name.Local+":"+attr.Value)
 		}
 	}
-	// Make a copy of the top style
-	curStyle := c.StyleStack[len(c.StyleStack)-1]
+	// Make a copy of the top state
+	state := c.states[len(c.states)-1]
+	state.text = "" // Text does not pass though to the new item
+	state.name = name
 	for _, pair := range pairs {
 		kv := strings.Split(pair, ":")
 		if len(kv) >= 2 {
 			k := strings.ToLower(kv[0])
 			k = strings.TrimSpace(k)
 			v := strings.TrimSpace(kv[1])
-			err := c.readStyleAttr(&curStyle, k, v)
+			err := c.readStyleAttr(&(state.style), k, v)
 			if err != nil {
 				return err
 			}
 		}
 	}
-	c.adaptClasses(&curStyle, className)
-	c.StyleStack = append(c.StyleStack, curStyle) // Push style onto stack
+	c.adaptClasses(&(state.style), className)
+	c.states = append(c.states, state) // Push style onto stack
 	return nil
 }
 
@@ -109,21 +127,23 @@ func (c *IconCursor) readTransformAttr(m1 rasterx.Matrix2D, k string) (rasterx.M
 	ln := len(c.points)
 	switch k {
 	case "rotate":
-		if ln == 1 {
+		switch ln {
+		case 1:
 			m1 = m1.Rotate(c.points[0] * math.Pi / 180)
-		} else if ln == 3 {
+		case 3:
 			m1 = m1.Translate(c.points[1], c.points[2]).
 				Rotate(c.points[0]*math.Pi/180).
 				Translate(-c.points[1], -c.points[2])
-		} else {
+		default:
 			return m1, errParamMismatch
 		}
 	case "translate":
-		if ln == 1 {
+		switch ln {
+		case 1:
 			m1 = m1.Translate(c.points[0], 0)
-		} else if ln == 2 {
+		case 2:
 			m1 = m1.Translate(c.points[0], c.points[1])
-		} else {
+		default:
 			return m1, errParamMismatch
 		}
 	case "skewx":
@@ -139,11 +159,12 @@ func (c *IconCursor) readTransformAttr(m1 rasterx.Matrix2D, k string) (rasterx.M
 			return m1, errParamMismatch
 		}
 	case "scale":
-		if ln == 1 {
+		switch ln {
+		case 1:
 			m1 = m1.Scale(c.points[0], 0)
-		} else if ln == 2 {
+		case 2:
 			m1 = m1.Scale(c.points[0], c.points[1])
-		} else {
+		default:
 			return m1, errParamMismatch
 		}
 	case "matrix":
@@ -166,7 +187,7 @@ func (c *IconCursor) readTransformAttr(m1 rasterx.Matrix2D, k string) (rasterx.M
 
 func (c *IconCursor) parseTransform(v string) (rasterx.Matrix2D, error) {
 	ts := strings.Split(v, ")")
-	m1 := c.StyleStack[len(c.StyleStack)-1].mAdder.M
+	m1 := c.states[len(c.states)-1].style.mAdder.M
 	for _, t := range ts {
 		t = strings.TrimSpace(t)
 		if len(t) == 0 {
@@ -286,14 +307,9 @@ func (c *IconCursor) readStyleAttr(curStyle *PathStyle, k, v string) error {
 		curStyle.DashOffset = dashOffset
 	case "stroke-dasharray":
 		if v != "none" {
-			dashes := splitOnCommaOrSpace(v)
-			dList := make([]float64, len(dashes))
-			for i, dstr := range dashes {
-				d, err := parseFloat(strings.TrimSpace(dstr), 64)
-				if err != nil {
-					return err
-				}
-				dList[i] = d
+			dList, err := ReadFloatList(v)
+			if err != nil {
+				return err
 			}
 			curStyle.Dash = dList
 			break
@@ -315,16 +331,25 @@ func (c *IconCursor) readStyleAttr(curStyle *PathStyle, k, v string) error {
 			return err
 		}
 		curStyle.mAdder.M = m
+		//case "font-family":
+		//curStyle.FontFamily = v
+		//case "font-kerning":
+		//curStyle.FontKerning = true
+		// if v == "false" || v == "no" || v == "0" {
+		// 	curStyle.FontKerning = false
+		// }
+		//case "font-size":
+		//curStyle.FontSize = v
 	}
 	return nil
 }
 
 func (c *IconCursor) readStartElement(se xml.StartElement) (err error) {
 	var skipDef bool
-	if se.Name.Local == "radialGradient" || se.Name.Local == "linearGradient" || c.inGrad {
+	if se.Name.Local == "radialGradient" || se.Name.Local == "linearGradient" || c.states[len(c.states)-1].inGrad {
 		skipDef = true
 	}
-	if c.inDefs && !skipDef {
+	if c.states[len(c.states)-1].inDefs && !skipDef {
 		ID := ""
 		for _, attr := range se.Attr {
 			if attr.Name.Local == "id" {
@@ -354,7 +379,7 @@ func (c *IconCursor) readStartElement(se xml.StartElement) (err error) {
 	if err != nil {
 		e := fmt.Sprintf("error during processing svg element %s: %s", se.Name.Local, err.Error())
 		if c.returnError(e) {
-			err = errors.New(e)
+			return errors.New(e)
 		}
 		err = nil
 	}
@@ -364,7 +389,7 @@ func (c *IconCursor) readStartElement(se xml.StartElement) (err error) {
 		pathCopy := make(rasterx.Path, len(c.Path))
 		copy(pathCopy, c.Path)
 		c.icon.SVGPaths = append(c.icon.SVGPaths,
-			SvgPath{c.StyleStack[len(c.StyleStack)-1], pathCopy})
+			SvgPath{c.states[len(c.states)-1].style, pathCopy})
 		c.Path = c.Path[:0]
 	}
 	return

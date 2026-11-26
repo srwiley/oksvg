@@ -174,8 +174,8 @@ func TestLandscapeIcons(t *testing.T) {
 
 func TestTestIcons(t *testing.T) {
 	for _, p := range []string{
-		"astronaut", "jupiter", "lander", "school-bus", "telescope", "content-cut-light", "defs",
-		"24px", "badelement"} {
+		"fire", "astronaut", "jupiter", "lander", "school-bus", "telescope", "content-cut-light", "defs",
+		"24px", "badelement", "original", "tagsremoved", "gear-solid-full", "donut", "sheild"} {
 		SaveIcon(t, "testdata/testIcons/"+p+".svg")
 	}
 }
@@ -192,6 +192,7 @@ func TestStrokeIcons(t *testing.T) {
 		"TestShapes5.svg",
 		"TestShapes6.svg",
 		"DoublePathDef.svg",
+		"TopLevelStyle.svg",
 	} {
 		SaveIcon(t, "testdata/"+p)
 	}
@@ -226,6 +227,53 @@ func TestClassesIcon(t *testing.T) {
 		t.Error("failed to catch attribute format error")
 	}
 
+}
+
+func TestRGBA(t *testing.T) {
+	for _, tc := range []struct {
+		in   string
+		want color.NRGBA
+	}{
+		{"rgb(255,255,255)", color.NRGBA{255, 255, 255, 255}},
+		{"rgba(255,255,255,1.0)", color.NRGBA{255, 255, 255, 255}},
+		{"rgba(255, 0, 0, 0.5)", color.NRGBA{255, 0, 0, 128}},
+		{"rgba(0,0,0,0)", color.NRGBA{0, 0, 0, 0}},
+		{"rgba(0,0,255,50%)", color.NRGBA{0, 0, 255, 128}},
+	} {
+		c, err := ParseSVGColor(tc.in)
+		if err != nil {
+			t.Errorf("%s: %v", tc.in, err)
+			continue
+		}
+		if got := c.(color.NRGBA); got != tc.want {
+			t.Errorf("%s: got %v, want %v", tc.in, got, tc.want)
+		}
+	}
+
+	if _, err := ParseSVGColor("rgba(255,255,255)"); err == nil {
+		t.Error("rgba with 3 values should error")
+	}
+	if _, err := ParseSVGColor("rgba(255,255,255,1.0,2)"); err == nil {
+		t.Error("rgba with 5 values should error")
+	}
+}
+
+func TestDonutHole(t *testing.T) {
+	// donut.svg is two arcs: an outer circle and an inner circle wound the
+	// opposite way, so the nonzero fill rule must leave a hole in the middle.
+	img := DrawIcon(t, "testdata/testIcons/donut.svg")
+	if img == nil {
+		return
+	}
+	b := img.Bounds()
+	cx, cy := b.Dx()/2, b.Dy()/2
+	if _, _, _, a := img.At(cx, cy).RGBA(); a != 0 {
+		t.Errorf("center pixel (%d,%d) should be transparent, got %v", cx, cy, img.At(cx, cy))
+	}
+	// A point on the ring, between the inner radius (96) and outer (256).
+	if _, _, _, a := img.At(cx+176, cy).RGBA(); a != 0xFFFF {
+		t.Errorf("ring pixel (%d,%d) should be opaque, got %v", cx+176, cy, img.At(cx+176, cy))
+	}
 }
 
 func TestHSL(t *testing.T) {
