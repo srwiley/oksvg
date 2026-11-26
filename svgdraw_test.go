@@ -175,7 +175,7 @@ func TestLandscapeIcons(t *testing.T) {
 func TestTestIcons(t *testing.T) {
 	for _, p := range []string{
 		"fire", "astronaut", "jupiter", "lander", "school-bus", "telescope", "content-cut-light", "defs",
-		"24px", "badelement", "original", "tagsremoved"} {
+		"24px", "badelement", "original", "tagsremoved", "gear-solid-full", "donut"} {
 		SaveIcon(t, "testdata/testIcons/"+p+".svg")
 	}
 }
@@ -255,6 +255,24 @@ func TestRGBA(t *testing.T) {
 	}
 	if _, err := ParseSVGColor("rgba(255,255,255,1.0,2)"); err == nil {
 		t.Error("rgba with 5 values should error")
+	}
+}
+
+func TestDonutHole(t *testing.T) {
+	// donut.svg is two arcs: an outer circle and an inner circle wound the
+	// opposite way, so the nonzero fill rule must leave a hole in the middle.
+	img := DrawIcon(t, "testdata/testIcons/donut.svg")
+	if img == nil {
+		return
+	}
+	b := img.Bounds()
+	cx, cy := b.Dx()/2, b.Dy()/2
+	if _, _, _, a := img.At(cx, cy).RGBA(); a != 0 {
+		t.Errorf("center pixel (%d,%d) should be transparent, got %v", cx, cy, img.At(cx, cy))
+	}
+	// A point on the ring, between the inner radius (96) and outer (256).
+	if _, _, _, a := img.At(cx+176, cy).RGBA(); a != 0xFFFF {
+		t.Errorf("ring pixel (%d,%d) should be opaque, got %v", cx+176, cy, img.At(cx+176, cy))
 	}
 }
 

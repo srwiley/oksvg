@@ -137,7 +137,7 @@ func (c *PathCursor) EllipseAt(cx, cy, rx, ry float64) {
 func (c *PathCursor) AddArcFromA(points []float64) {
 	cx, cy := rasterx.FindEllipseCenter(&points[0], &points[1], points[2]*math.Pi/180, c.placeX,
 		c.placeY, points[5], points[6], points[4] == 0, points[3] == 0)
-	c.placeX, c.placeY = rasterx.AddArc(c.points, cx, cy, c.placeX, c.placeY, &c.Path)
+	c.placeX, c.placeY = rasterx.AddArc(points, cx, cy, c.placeX, c.placeY, &c.Path)
 }
 
 // CompilePath translates the svgPath description string into a rasterx path.
