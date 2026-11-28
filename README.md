@@ -42,7 +42,7 @@ oksvg also requires the rasterx package located here:
 ### OKSVG update:
 After a four year hiatus an updated version of OKSVG has been released on 11/2026.
 Several bug fixes and enhancements were made (see Monad pull request),
-as well as limited support for the <text> tag. This feature is still being developed.
+as well as limited support for the text tag. This feature is still being developed.
 
 
 
