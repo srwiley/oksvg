@@ -44,3 +44,34 @@ func TestReadFloat(t *testing.T) {
 	}
 
 }
+
+// TestParseColorValuePercent covers percentage components in rgb() colors.
+// Percentages are floating point numbers per the SVG specification, so a
+// value such as 50.5% must parse rather than fail on the decimal point.
+func TestParseColorValuePercent(t *testing.T) {
+	tests := []struct {
+		in   string
+		want uint8
+	}{
+		{"0%", 0},
+		{"50.5%", 128},
+		{"12.5%", 31},
+		{"100%", 255},
+		{"128", 128},
+		{"300", 255},
+	}
+	for _, tc := range tests {
+		got, err := parseColorValue(tc.in)
+		if err != nil {
+			t.Errorf("parseColorValue(%q) returned error: %v", tc.in, err)
+			continue
+		}
+		if got != tc.want {
+			t.Errorf("parseColorValue(%q) = %d, want %d", tc.in, got, tc.want)
+		}
+	}
+
+	if _, err := parseColorValue("abc%"); err == nil {
+		t.Error("parseColorValue(\"abc%\") returned no error")
+	}
+}

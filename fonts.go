@@ -12,6 +12,7 @@ import (
 )
 
 type (
+	// Ttx holds the glyph, code and kerning tables of a parsed TTX font file.
 	Ttx struct {
 		Name                   string
 		Created, Modified      string
@@ -22,6 +23,7 @@ type (
 		KernTable              map[string]int16
 	}
 
+	// Glyph is a single font glyph with its metrics and outlines.
 	Glyph struct {
 		Name                    string
 		MaxX, MinX, MaxY, MinY  int16
@@ -30,8 +32,10 @@ type (
 		Contours                []Contour
 	}
 
+	// Contour is the closed outline of one glyph component.
 	Contour []CPoint
 
+	// CPoint is a contour point; On reports whether it lies on the curve.
 	CPoint struct {
 		X, Y int16
 		On   bool
@@ -339,6 +343,7 @@ func parseGlyphAttrs(attrs []xml.Attr) (g Glyph, e error) {
 	return
 }
 
+// AddPair records one TTX attribute, dispatching on the attribute key.
 func (ttx *Ttx) AddPair(attr []xml.Attr) (err error) {
 	var l, r string
 	var v int
@@ -390,6 +395,7 @@ func (g *Glyph) addComponents(gc Glyph, x, y int16) {
 // 	return
 // }
 
+// GlyphForRune returns the glyph for tk, reporting false if the font has none.
 func (ttx *Ttx) GlyphForRune(tk rune) (g Glyph, ok bool) {
 	var name string
 	name, ok = ttx.CodeTable[uint16(tk)]
@@ -400,6 +406,8 @@ func (ttx *Ttx) GlyphForRune(tk rune) (g Glyph, ok bool) {
 	return
 }
 
+// StringToPaths converts text to a path in the font's units, transformed by m.
+// It returns the path, the total advance and the number of runes consumed.
 func (ttx *Ttx) StringToPaths(text string, m rasterx.Matrix2D, useKerning bool) (p rasterx.Path, advance fixed.Point26_6, consumed int) {
 	q := &rasterx.MatrixAdder{M: m, Adder: &p}
 	var lastName string

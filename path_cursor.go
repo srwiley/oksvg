@@ -50,6 +50,7 @@ var (
 	errZeroLengthID   = errors.New("zero length id")
 )
 
+// ReadFloatList parses a comma or space separated list of numbers.
 func ReadFloatList(numStr string) ([]float64, error) {
 	dashes := splitOnCommaOrSpace(numStr)
 	dList := make([]float64, len(dashes))

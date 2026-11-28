@@ -32,6 +32,7 @@ func ReadIconStream(stream io.Reader, errMode ...ErrorMode) (*SvgIcon, error) {
 	return cursor.ReadIconStream(stream, errMode...)
 }
 
+// NewIconCursor returns an IconCursor with the default style and no icon set.
 func NewIconCursor() *IconCursor {
 	icon := &SvgIcon{Defs: make(map[string][]definition), Grads: make(map[string]*rasterx.Gradient), Transform: rasterx.Identity}
 	return &IconCursor{states: []state{{style: DefaultStyle}}, icon: icon}
@@ -185,6 +186,8 @@ func ReadIcon(iconFile string, errMode ...ErrorMode) (*SvgIcon, error) {
 	return ReadIconStream(fin, errMode...)
 }
 
+// ParseSVGColor parses an SVG color string in all forms
+// including all SVG1.1 names, obtained from the image.colornames package
 func ParseSVGColor(colorStr string) (color.Color, error) {
 
 	type parseColorFunc func(colorStr string) (color color.Color, done bool, oops error)
