@@ -13,8 +13,8 @@ import (
 
 func GetFonts(t *testing.T) (fonts []Ttx) {
 	fs := []string{
-		//"testdata/testfonts/luximr.ttx",
-		"testdata/testfonts/luxirr.ttx",
+		"testdata/testfonts/luximr.ttx",
+		//"testdata/testfonts/luxirr.ttx",
 		//"testdata/testfonts/luxisr.ttx",
 	}
 	for _, fstr := range fs {
@@ -98,13 +98,13 @@ func DrawIconF(t *testing.T, fonts []Ttx, iconPath string) image.Image {
 func TestSVGText(t *testing.T) {
 	fonts := GetFonts(t)
 	t.Log("loaded fonts ", len(fonts))
-	SaveIconF(t, fonts, "testdata/SimpleText2.svg")
+	SaveIconF(t, fonts, "testdata/SimpleText.svg")
 }
 
 func TestReadTTx(t *testing.T) {
 	fs := []string{
-		//"testdata/testfonts/luximr.ttx",
-		"testdata/testfonts/luxirr.ttx",
+		"testdata/testfonts/luximr.ttx",
+		//"testdata/testfonts/luxirr.ttx",
 		//"testdata/testfonts/luxisr.ttx",
 	}
 	for _, fstr := range fs {

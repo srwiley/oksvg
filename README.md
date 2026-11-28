@@ -33,17 +33,16 @@ oksvg requires the following imports which are not included in the go standard l
 * golang.org/x/image/colornames
 * golang.org/x/image/math/fixed
 
-These can be included in your gopath by the following 'get' commands:
 
-* "go get golang.org/x/image/math/fixed"
-* "go get golang.org/x/image/colornames"
-* "go get golang.org/x/net/html/charset"
 
-oksvg also requires the user to get or clone into the workspace the rasterx package located here:
+oksvg also requires the rasterx package located here:
 
 * github.com/srwiley/rasterx
 
-
+### OKSVG update:
+After a four year hiatus an updated version of OKSVG has been released on 11/2026.
+Several bug fixes and enhancements were made (see Monad pull request),
+as well as limited support for the <text> tag. This feature is still being developed.
 
 
 
